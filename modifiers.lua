@@ -6,7 +6,7 @@
 return
 {
 [0]="NONE",
-    --[]="NAME",
+	--[]="NAME",
 [1]="DEF", -- tank, blu/cannonball
 [2]="HP", -- mnk/chi, sword, rdm/convert, yellow HP sets
 [3]="HPP",
@@ -23,8 +23,8 @@ return
 [13]="MND",
 [14]="CHR",
 
-    -- Elemental Defenses
-    --[128]="128",
+	-- Elemental Defenses
+	--[128]="128",
 [15]="FIREDEF",
 [16]="ICEDEF",
 [17]="WINDDEF",
@@ -48,7 +48,7 @@ return
 [30]="MACC",
 [31]="MEVA",
 
-    -- Magic Accuracy and Elemental Attacks
+	-- Magic Accuracy and Elemental Attacks
 [32]="FIREATT",
 [33]="ICEATT",
 [34]="WINDATT",
@@ -68,17 +68,17 @@ return
 
 [48]="WSACC",
 
-    -- Resistance to damage type
-    -- Value is stored as a percentage of damage reduction (to within 1000)
-    -- Example:[100]="1000",
+	-- Resistance to damage type
+	-- Value is stored as a percentage of damage reduction (to within 1000)
+	-- Example:[100]="1000",
 [49]="SLASHRES",
 [50]="PIERCERES",
 [51]="IMPACTRES",
 [52]="HTHRES",
 
-    -- Damage Reduction to Elements
-    -- Value is stored as a percentage of damage reduction (to within 1000)
-    -- Example:[100]="1000",
+	-- Damage Reduction to Elements
+	-- Value is stored as a percentage of damage reduction (to within 1000)
+	-- Example:[100]="1000",
 [54]="FIRERES",
 [55]="ICERES",
 [56]="WINDRES",
@@ -106,7 +106,7 @@ return
 [487]="MAG_BURST_BONUS",
 [488]="INHIBIT_TP",
 
-    -- Working Skills (weapon combat skills)
+	-- Working Skills (weapon combat skills)
 [80]="HTH",
 [81]="DAGGER",
 [82]="SWORD",
@@ -130,7 +130,7 @@ return
 [109]="SHIELD",
 [110]="PARRY",
 
-    -- Magic Skills
+	-- Magic Skills
 [111]="DIVINE",
 [112]="HEALING",
 [113]="ENHANCE",
@@ -144,7 +144,7 @@ return
 [121]="WIND",
 [122]="BLUE",
 
-    -- Synthesis Skills
+	-- Synthesis Skills
 [127]="FISH",
 [128]="WOOD",
 [129]="SMITH",
@@ -157,7 +157,7 @@ return
 [136]="SYNERGY",
 [137]="RIDING",
 
-    -- Chance you will not make an hq synth (Impossibility of HQ synth)
+	-- Chance you will not make an hq synth (Impossibility of HQ synth)
 [144]="ANTIHQ_WOOD",
 [145]="ANTIHQ_SMITH",
 [146]="ANTIHQ_GOLDSMITH",
@@ -167,7 +167,7 @@ return
 [150]="ANTIHQ_ALCHEMY",
 [151]="ANTIHQ_COOK",
 
-    -- Damage / Crit Damage / Delay
+	-- Damage / Crit Damage / Delay
 [160]="DMG",
 [161]="DMGPHYS",
 [190]="DMGPHYS_II",
@@ -216,7 +216,7 @@ return
 
 [311]="MAGIC_DAMAGE",
 
-    -- FOOD!
+	-- FOOD!
 [176]="FOOD_HPP",
 [177]="FOOD_HP_CAP",
 [178]="FOOD_MPP",
@@ -235,7 +235,7 @@ return
 [100]="FOOD_MACC_CAP",
 [937]="FOOD_DURATION",
 
-    -- Killer-Effects - (Most by Traits/JobAbility)
+	-- Killer-Effects - (Most by Traits/JobAbility)
 [224]="VERMIN_KILLER",
 [225]="BIRD_KILLER",
 [226]="AMORPH_KILLER",
@@ -252,7 +252,7 @@ return
 [237]="LUMORIAN_KILLER",
 [238]="LUMINION_KILLER",
 
-    -- Resistances to enfeebles - Traits/Job Ability
+	-- Resistances to enfeebles - Traits/Job Ability
 [240]="SLEEPRES",
 [241]="POISONRES",
 [242]="PARALYZERES",
@@ -275,7 +275,7 @@ return
 [258]="MIJIN_RERAISE",
 [259]="DUAL_WIELD",
 
-    -- Warrior
+	-- Warrior
 [288]="DOUBLE_ATTACK",
 [483]="WARCRY_DURATION",
 [948]="BERSERK_EFFECT",
@@ -283,7 +283,7 @@ return
 [955]="AGGRESSOR_DURATION",
 [956]="DEFENDER_DURATION",
 
-    -- Monk
+	-- Monk
 [97]="BOOST_EFFECT",
 [123]="CHAKRA_MULT",
 [124]="CHAKRA_REMOVAL",
@@ -296,7 +296,7 @@ return
 [552]="DODGE_EFFECT",
 [561]="FOCUS_EFFECT",
 
-    -- White Mage
+	-- White Mage
 [293]="AFFLATUS_SOLACE",
 [294]="AFFLATUS_MISERY",
 [484]="AUSPICE_EFFECT",
@@ -305,18 +305,18 @@ return
 [860]="CURE2MP_PERCENT",
 [910]="DIVINE_BENISON",
 
-    -- Black Mage
+	-- Black Mage
 [295]="CLEAR_MIND",
 [296]="CONSERVE_MP",
 
-    -- Red Mage
+	-- Red Mage
 [299]="BLINK",
 [300]="STONESKIN",
 [301]="PHALANX",
 [290]="ENF_MAG_POTENCY",
 [297]="ENHANCES_SABOTEUR",
 
-    -- Thief
+	-- Thief
 [93]="FLEE_DURATION",
 [298]="STEAL",
 [896]="DESPOIL",
@@ -330,7 +330,7 @@ return
 [885]="HIDE_DURATION",
 [897]="GILFINDER",
 
-    -- Paladin
+	-- Paladin
 [857]="HOLY_CIRCLE_DURATION",
 [92]="RAMPART_DURATION",
 [426]="ABSORB_PHYSDMG_TO_MP",
@@ -341,13 +341,13 @@ return
 [966]="COVER_MAGIC_AND_RANGED",
 [967]="COVER_DURATION",
 
-    -- Dark Knight
+	-- Dark Knight
 [858]="ARCANE_CIRCLE_DURATION",
 [96]="SOULEATER_EFFECT",
 [906]="DESPERATE_BLOWS",
 [907]="STALWART_SOUL",
 
-    -- Beastmaster
+	-- Beastmaster
 [304]="TAME",
 [360]="CHARM_TIME",
 [364]="REWARD_HP_BONUS",
@@ -355,7 +355,7 @@ return
 [503]="FERAL_HOWL_DURATION",
 [564]="JUG_LEVEL_RANGE",
 
-    -- Bard
+	-- Bard
 [433]="MINNE_EFFECT",
 [434]="MINUET_EFFECT",
 [435]="PAEON_EFFECT",
@@ -381,7 +381,7 @@ return
 [455]="SONG_SPELLCASTING_TIME",
 [833]="SONG_RECAST_DELAY",
 
-    -- Ranger
+	-- Ranger
 [98]="CAMOUFLAGE_DURATION",
 [305]="RECYCLE",
 [365]="SNAP_SHOT",
@@ -395,21 +395,21 @@ return
 [312]="SCAVENGE_EFFECT",
 [314]="SHARPSHOT",
 
-    -- Samurai
+	-- Samurai
 [95]="WARDING_CIRCLE_DURATION",
 [94]="MEDITATE_DURATION",
 [306]="ZANSHIN",
 [508]="THIRD_EYE_COUNTER_RATE",
 [839]="THIRD_EYE_ANTICIPATE_RATE",
 
-    -- Ninja
+	-- Ninja
 [307]="UTSUSEMI",
 [900]="UTSUSEMI_BONUS",
 [308]="NINJA_TOOL",
 [522]="NIN_NUKE_BONUS",
 [911]="DAKEN",
 
-    -- Dragoon
+	-- Dragoon
 [859]="ANCIENT_CIRCLE_DURATION",
 [361]="JUMP_TP_BONUS",
 [362]="JUMP_ATT_BONUS",
@@ -418,7 +418,7 @@ return
 [829]="WYVERN_EFFECTIVE_BREATH",
 [974]="WYVERN_SUBJOB_TRAITS",
 
-    -- Summoner
+	-- Summoner
 [371]="AVATAR_PERPETUATION",
 [372]="WEATHER_REDUCTION",
 [373]="DAY_REDUCTION",
@@ -429,11 +429,11 @@ return
 [126]="BP_DAMAGE",
 [913]="BLOOD_BOON",
 
-    -- Blue Mage
+	-- Blue Mage
 [309]="BLUE_POINTS",
 [945]="BLUE_LEARN_CHANCE",
 
-    -- Corsair
+	-- Corsair
 [382]="EXP_BONUS",
 [528]="ROLL_RANGE",
 [542]="JOB_BONUS_CHANCE",
@@ -472,7 +472,7 @@ return
 [881]="PHANTOM_ROLL",
 [882]="PHANTOM_DURATION",
 
-    -- Puppetmaster
+	-- Puppetmaster
 [504]="MANEUVER_BONUS",
 [505]="OVERLOAD_THRESH",
 [842]="AUTO_DECISION_DELAY",
@@ -495,7 +495,7 @@ return
 [942]="AUTO_PERFORMANCE_BOOST",
 [943]="AUTO_ANALYZER",
 
-    -- Dancer
+	-- Dancer
 [333]="FINISHING_MOVES",
 [490]="SAMBA_DURATION",
 [491]="WALTZ_POTENTCY",
@@ -507,7 +507,7 @@ return
 [498]="SAMBA_PDURATION",
 [836]="REVERSE_FLOURISH_EFFECT",
 
-    -- Scholar
+	-- Scholar
 [393]="BLACK_MAGIC_COST",
 [394]="WHITE_MAGIC_COST",
 [395]="BLACK_MAGIC_CAST",
@@ -527,7 +527,7 @@ return
 [401]="SUBLIMATION_BONUS",
 [489]="GRIMOIRE_SPELLCASTING",
 
-    -- Geo
+	-- Geo
 [959]="CARDINAL_CHANT",
 [960]="INDI_DURATION",
 [961]="GEOMANCY",
@@ -548,11 +548,11 @@ return
 [880]="SAVETP",
 [944]="CONSERVE_TP",
 
-    -- Rune Fencer
+	-- Rune Fencer
 
 [963]="INQUARTATA",
 
-    -- Stores the amount of elemental affinity (elemental staves mostly) - damage, acc, and perpetuation is all handled separately
+	-- Stores the amount of elemental affinity (elemental staves mostly) - damage, acc, and perpetuation is all handled separately
 [347]="FIRE_AFFINITY_DMG",
 [348]="ICE_AFFINITY_DMG",
 [349]="WIND_AFFINITY_DMG",
@@ -580,7 +580,7 @@ return
 [559]="LIGHT_AFFINITY_PERP",
 [560]="DARK_AFFINITY_PERP",
 
-    -- Special Modifier+
+	-- Special Modifier+
 [355]="ADDS_WEAPONSKILL",
 [356]="ADDS_WEAPONSKILL_DYN",
 
@@ -612,7 +612,7 @@ return
 
 [402]="WYVERN_BREATH",
 
-    -- Gear set modifiers
+	-- Gear set modifiers
 [408]="DA_DOUBLE_DAMAGE",
 [409]="TA_TRIPLE_DAMAGE",
 [410]="ZANSHIN_DOUBLE_DAMAGE",
@@ -627,12 +627,12 @@ return
 [419]="GRIMOIRE_INSTANT_CAST",
 [430]="QUAD_ATTACK",
 
-    -- Reraise (Auto Reraise, used by gear)
+	-- Reraise (Auto Reraise, used by gear)
 [456]="RERAISE_I",
 [457]="RERAISE_II",
 [458]="RERAISE_III",
 
-    -- Elemental Absorb Chance
+	-- Elemental Absorb Chance
 [459]="FIRE_ABSORB",
 [460]="ICE_ABSORB",
 [461]="WIND_ABSORB",
@@ -642,7 +642,7 @@ return
 [465]="LIGHT_ABSORB",
 [466]="DARK_ABSORB",
 
-    -- Elemental Null Chance
+	-- Elemental Null Chance
 [467]="FIRE_NULL",
 [468]="ICE_NULL",
 [469]="WIND_NULL",
@@ -661,14 +661,14 @@ return
 [499]="ITEM_SPIKES_TYPE",
 [500]="ITEM_SPIKES_DMG",
 [501]="ITEM_SPIKES_CHANCE",
-    --[431]="ITEM_ADDEFFECT_TYPE",
-    --[499]="ITEM_SUBEFFECT",
-    --[500]="ITEM_ADDEFFECT_DMG",
-    --[501]="ITEM_ADDEFFECT_CHANCE",
-    --[950]="ITEM_ADDEFFECT_ELEMENT",
-    --[951]="ITEM_ADDEFFECT_STATUS",
-    --[952]="ITEM_ADDEFFECT_POWER",
-    --[953]="ITEM_ADDEFFECT_DURATION",
+	--[431]="ITEM_ADDEFFECT_TYPE",
+	--[499]="ITEM_SUBEFFECT",
+	--[500]="ITEM_ADDEFFECT_DMG",
+	--[501]="ITEM_ADDEFFECT_CHANCE",
+	--[950]="ITEM_ADDEFFECT_ELEMENT",
+	--[951]="ITEM_ADDEFFECT_STATUS",
+	--[952]="ITEM_ADDEFFECT_POWER",
+	--[953]="ITEM_ADDEFFECT_DURATION",
 
 [496]="GOV_CLEARS",
 
@@ -749,7 +749,7 @@ return
 
 [909]="QUICK_MAGIC",
 
-    -- Crafting food effects
+	-- Crafting food effects
 [851]="SYNTH_SUCCESS",
 [852]="SYNTH_SKILL_GAIN",
 [861]="SYNTH_FAIL_RATE",
@@ -772,13 +772,13 @@ return
 [931]="SYNTH_FAIL_RATE_ALCHEMY",
 [932]="SYNTH_FAIL_RATE_COOK",
 
-    -- Weaponskill %damage modifiers
-    -- The following modifier should not ever be set, but %damage modifiers to weaponskills use the next 255 IDs (this modifier + the WSID)
-    -- For example, +10% damage to Chant du Cygne would be ID 570 + 225 (795)
+	-- Weaponskill %damage modifiers
+	-- The following modifier should not ever be set, but %damage modifiers to weaponskills use the next 255 IDs (this modifier + the WSID)
+	-- For example, +10% damage to Chant du Cygne would be ID 570 + 225 (795)
 [570]="WEAPONSKILL_DAMAGE_BASE",
 
 [840]="ALL_WSDMG_ALL_HITS",
-    -- Per https:--www.bg-wiki.com/bg/Weapon_Skill_Damage we need all 3..
+	-- Per https:--www.bg-wiki.com/bg/Weapon_Skill_Damage we need all 3..
 [841]="ALL_WSDMG_FIRST_HIT",
 [949]="WS_NO_DEPLETE",
 [980]="WS_STR_BONUS",
@@ -798,9 +798,9 @@ return
 [973]="SUBTLE_BLOW_II",
 [975]="GARDENING_WILT_BONUS",
 
-    -- The spares take care of finding the next ID to use so long as we don't forget to list IDs that have been freed up by refactoring.
-    -- 570 through 825 used by WS DMG mods these are not spares.
-    --[986]="SPARE",
-    --[987]="SPARE",
-    --[988]="SPARE",
+	-- The spares take care of finding the next ID to use so long as we don't forget to list IDs that have been freed up by refactoring.
+	-- 570 through 825 used by WS DMG mods these are not spares.
+	--[986]="SPARE",
+	--[987]="SPARE",
+	--[988]="SPARE",
 }
