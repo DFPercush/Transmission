@@ -91,22 +91,23 @@ end
 
 old_tostring = tostring
 function tostring(x, depth)
+	local pad_per_level = "  "
 	local out = ""
 	local padding = ""
 	if (depth == nil) then
 		depth = 1
 	else
-		for i = 0, depth, 1 do
-			padding = padding .. "  "
+		for i = 1, depth - 1, 1 do
+			padding = padding .. pad_per_level
 		end
 	end
 	if (type(x) == type({})) then
 		if (x == {}) then
 			return "{}"
 		end
-		out = out .. padding .. "{\n"
+		out = out .. "\n" .. padding .. "{\n"
 		for k, v in pairs(x) do
-			out = out .. padding .. tostring(k, depth+1) .. " = " .. tostring(v, depth+1) .. "\n"
+			out = out .. padding .. pad_per_level .. tostring(k, depth+1) .. " = " .. tostring(v, depth+1) .. "\n"
 		end
 		out = out .. padding .. "}"
 		return out
