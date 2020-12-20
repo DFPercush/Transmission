@@ -21,18 +21,20 @@ return {
 				weapon_delay = {480, 400, 380, 360, 340, 320, 300, 280}[get_martial_arts_level(player) + 1]
 			end
 
-			-- TODO: Average number of swings
+			-- TODO:
+				-- Average number of swings
+				-- delay / dps
+				-- crit rate / dmg
+
+			local total_mods = {}
+			apply_set_mods(total_mods, gear_set);
 
 			-- Assuming we hit, how much damage
-			-- TODO: Crit
+			local att = forcenumber(total_mods.ATT)
+			local str = forcenumber(total_mods.STR)
+			local estimate_per_swing = str + ((str/2) + att)
 
-			--local player = get_player()
-			--if player.can_dual_wield
-			local setmods = {}
-			for slot_name,piece in pairs(gear_set) do
-				
-			end
-			return 0
+			return estimate_per_swing / weapon_delay
 		end,
 		relevant_modifiers = 
 		{

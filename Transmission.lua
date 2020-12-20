@@ -7,10 +7,10 @@
 
 
 
-_addon.name	   = 'best'
+_addon.name	   = 'Transmission'
 _addon.author  = 'DFPercush'
 _addon.version = '0.0.1'
-_addon.commands = {'best'}
+_addon.commands = {'tm', 'transmission'}
 
 -- Windower components
 require('chat')
@@ -261,6 +261,13 @@ function categorize_gear_by_slot(gear_list)
 	return ret
 end
 
+-- TODO: Rewrite this such that it holds one piece of gear constant at a time and scans all other sets with that piece of gear.
+--       Track which pieces of gear this operation has been completed for, and upon encountering a piece of gear in further permutations, skip.
+--       Report to player chat regarding the progress of scanning their equipment,
+--       e.g. in chat:
+--              Exhaustive analysis of Joyeuse paired with all other equipment complete.
+--              x% of equipment analyzed (1/400). Time elapsed: ##:##:## for Joyeuse; ##:##:## total.
+--              Starting evaluation of Genbu's Shield in the background...
 num_permute_calls = 0
 function evaluate_set_permutations(gear_list, utility_function)
 
@@ -353,8 +360,8 @@ end
 
 
 handle_command = function(p1, p2)
-	local target = windower.ffxi.get_mob_by_target("t")
-	print(target)
+	--local target = windower.ffxi.get_mob_by_target("t")
+	--print(target)
 
 	--local player = get_player()
 	--print(player.main_job .. player.main_job_level)
@@ -378,6 +385,7 @@ handle_command = function(p1, p2)
 	--print(type(result) .. " : " .. result)
 	--result = nil
 
+	--print(get_modifier_id("atk"))
 end
 
 

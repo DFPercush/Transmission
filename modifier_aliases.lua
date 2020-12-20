@@ -3,7 +3,7 @@ local modifiers = require('modifiers')
 require('logger')
 local modifier_aliases =
 {
-    ATT = { "atk", "attack"},
+    ATT = { "ATK", "ATTACK"},
     
 }
 
@@ -19,7 +19,8 @@ for modifier_name, aliases in pairs(modifier_aliases) do
 end
 
 function get_modifier_by_alias(alias)
-    if modifiers[alias] ~= nil then return alias end
-    if modifier_alias_map[alias] ~= nil then return modifier_alias_map[alias] end
+
+    if modifiers[string.upper(alias)] ~= nil then return alias end
+    if modifier_alias_map[string.upper(alias)] ~= nil then return modifier_alias_map[string.upper(alias)] end
     return "?"
 end

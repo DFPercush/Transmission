@@ -245,5 +245,12 @@ function apply_item_mods(mod_accum, item)
 end
 
 function apply_set_mods(mod_accum, gear_set)
-    
+    mod_accum = mod_accum or {}
+    for _, item in pairs(gear_set) do
+        apply_item_mods(mod_accum, item)
+    end
+end
+
+function get_modifier_id(alias)
+    return modifiers[get_modifier_by_alias(alias)]
 end
