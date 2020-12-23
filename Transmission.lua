@@ -21,11 +21,13 @@ resources = res
 -- This addon
 require('util')
 local flags = require('flags')
+TM_FLAGS = flags
 local job_flags = flags.job_flags
 local job_index = flags.job_index
 --local slot_flags = flags.slot_flags
 require("modifier_aliases")
-	
+require("multi_hit_weapons")
+
 -- From topaz/src/modifier.h
 -- cat mods-enum-cpp.txt | sed s/\\\ *\\\([A-Za-z0-9_]*\\\)\\\ *=\\\ *\\\([0-9]*\\\).*/\\\[\\\2\\\]=\\\"\\\1\\\",/ > modifiers.lua
 -- will require slight editing at beginning and end of file
@@ -258,8 +260,184 @@ function categorize_gear_by_slot(gear_list)
 			end
 		end
 	end
+	ret.count = {}
+	ret.count[1] = tcount(ret.Main)
+	ret.count[2] = tcount(ret.Sub)
+	ret.count[3] = tcount(ret.Range)
+	ret.count[4] = tcount(ret.Ammo)
+	ret.count[5] = tcount(ret.Head)
+	ret.count[6] = tcount(ret.Body)
+	ret.count[7] = tcount(ret.Hands)
+	ret.count[8] = tcount(ret.Legs)
+	ret.count[9] = tcount(ret.Feet)
+	ret.count[10] = tcount(ret.Neck)
+	ret.count[11] = tcount(ret.Waist)
+	ret.count[12] = tcount(ret["Left Ear"])
+	ret.count[13] = tcount(ret["Right Ear"])
+	ret.count[14] = tcount(ret["Left Ring"])
+	ret.count[15] = tcount(ret["Right Ring"])
+	ret.count[16] = tcount(ret.Back)
+	ret[1]  = (ret.Main)
+	ret[2]  = (ret.Sub)
+	ret[3]  = (ret.Range)
+	ret[4]  = (ret.Ammo)
+	ret[5]  = (ret.Head)
+	ret[6]  = (ret.Body)
+	ret[7]  = (ret.Hands)
+	ret[8]  = (ret.Legs)
+	ret[9]  = (ret.Feet)
+	ret[10]  = (ret.Neck)
+	ret[11] = (ret.Waist)
+	ret[12] = (ret["Left Ear"])
+	ret[13] = (ret["Right Ear"])
+	ret[14] = (ret["Left Ring"])
+	ret[15] = (ret["Right Ring"])
+	ret[16] = (ret.Back)
 	return ret
 end
+
+
+function filter_dimensional(gear_list, utility_function)
+	local lsi = 1 -- least significant index
+	local i = 1
+	--local cur = {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1}
+	local cur = {0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1}
+	local min = shallow_copy(cur)
+	local max = {}
+	for x=1,16 do
+		max[x] = tcount(gear_list[x])
+	end
+
+	print("max = " .. tostring(max))
+	
+	local count = 0
+	local viable = {}
+	local player = get_player()
+	local result
+	local vector_size
+	local keep
+	--local prev
+
+	local prevRangeStart = 1
+	local prevRangeEnd = 1
+	local curRangeStart = 1
+	local curRangeEnd = 1
+	--local min_bonuses = {}
+	--repeat -- main combinator loop
+	while multi_for_next(cur, min, max) do
+		result = {}
+		vector_size = utility_function(gear_list, cur, result, player)
+		-- TODO: store which gear this result is for.
+		--append(viable, result)
+		viable[#viable+1] = result
+		count = count + 1
+		--print("viable = " .. tostring(viable))
+
+		-- TODO: Remove limiter
+		if count > 1e6 then return 0 end
+
+		if (count % 10000 == 0) then
+			print(cur[1] .. ", " .. cur[2] .. ", " .. cur[3] .. ", " .. cur[4] .. ", " .. cur[5] .. ", " .. cur[6] .. ", " .. cur[7] .. ", " .. cur[8] .. ", " .. cur[9] .. ", " .. cur[10] .. ", " .. cur[11] .. ", " .. cur[12] .. ", " .. cur[13] .. ", " .. cur[14] .. ", " .. cur[15] .. ", " .. cur[16])
+
+			-- This is the "filter" part.
+			-- Eliminate sets based on whether they actually improve at least one thing.
+			for dimension = 1,vector_size do
+				table.sort(viable, function(a, b)
+					return a[dimension] > b[dimension]
+				end)
+				
+
+				--prev = viable[1]
+				curRangeStart = 1
+				curRangeEnd = 1
+				--for i = 2, #viable do
+				while curRangeEnd <= #viable do
+					prevRangeStart = curRangeStart
+					prevRangeEnd = curRangeEnd
+
+					-- Scan ahead in the list for all equal elements
+					curRangeStart = prevRangeEnd + 1
+					curRangeEnd = curRangeStart
+					if (curRangeStart > #viable) then break end
+					--print("dbg 1")
+					while curRangeEnd < #viable and feq(viable[curRangeEnd][dimension], viable[i][dimension]) do
+						curRangeEnd = curRangeEnd + 1
+					end
+					--print("dbg 2")
+					
+					keep = false
+					for iCur = curRangeStart, curRangeEnd do
+						for iPrev = prevRangeStart, prevRangeEnd do
+							for dim_cmp = 1, vector_size do
+								-- Is it better than something from the previous range
+								-- in at least one way?
+								if (viable[iCur] == nil) then
+									print("viable[" .. iCur .. "] == nil")
+								end
+								if (viable[iPrev] == nil) then
+									print("viable[" .. iPrev .. "] == nil")
+								end
+								if viable[iCur][dim_cmp] > viable[iPrev][dim_cmp] then
+									keep = true
+									break
+								end
+							end
+							if keep then break end
+						end
+						if not keep then
+							viable[iCur].need_to_delete = true
+						end
+					end
+					--print("dbg 3")
+
+					-- Build an array of equal on primary axis
+					-- list of previous compare-to items
+					-- new item must be better than the min stat
+
+					--[[
+					for d in 1, vector_size do
+						min_bonuses[d] = 9999
+					end
+
+					keep = false
+					for dim_cmp = 1, vector_size do
+						if viable[i][dim_cmp] > prev[dim_cmp] then
+							keep = true
+							break
+						end
+					end
+					prev = viable[i]
+					]]
+				end -- for i ... viable[i]
+
+				-- Clean up .need_to_delete
+				condense(viable, function(t) return t.need_to_delete end)
+				--print("dbg 4")
+			end -- for dimension = 1, vector_size
+			
+		end -- if count % something
+	--until multi_for_next(cur, min, max) == false
+	end
+
+	print("filter_dimensional: " .. count .. " iterations complete.")
+	print(#viable .. " viable sets")
+	print(" [1] = ")
+	print(viable[1])
+
+	--if true then return 0 end
+	--[[
+	local zcount = tcount(gear_list[1])
+	repeat
+		
+		i = i + 1
+		if (i > tcount(gear_list[lsi])) then
+			lsi = lsi + 1
+			i = 1
+		end
+	until (lsi == 1 and i > zcount)
+	]]
+end
+
 
 -- TODO: Rewrite this such that it holds one piece of gear constant at a time and scans all other sets with that piece of gear.
 --		 Track which pieces of gear this operation has been completed for, and upon encountering a piece of gear in further permutations, skip.
@@ -272,19 +450,22 @@ num_permute_calls = 0
 function evaluate_set_permutations(gear_list, utility_function)
 
 	function permute_gear(current_slot_id, growing_set)
+
 		num_permute_calls = num_permute_calls + 1
-		if num_permute_calls > 10000000 then return {} end
-		if (current_slot_id == 9) then
-			print("still working... slot=" .. current_slot_id .. " & " .. tostring(num_permute_calls) ..  " calls so far")
-		end
-		if num_permute_calls % 1000000 == 0 then
-			print("(raw#)" .. num_permute_calls .. " permutations so far")
+		--if num_permute_calls > 10000000 then return {} end
+		--if (current_slot_id == 9) then
+		--	print("still working... slot=" .. current_slot_id .. " & " .. tostring(num_permute_calls) ..  " calls so far")
+		--end
+		if num_permute_calls % 100000 == 0 then
+			filter_dimensional()
+			notice("Progress:" .. tcount(gear_list) .. " viable sets found in " .. num_permute_calls .. " / " .. goal_permute_calls .. " gear set combinations.")
 		end
 
 		local built_sets = {}
 		local my_set = shallow_copy(growing_set)
 		local this_slot_name = res.slots[current_slot_id].en
 		local gear_for_this_slot = gear_list[this_slot_name]
+		-- TODO: Filter by "more useful in at least one way than the minimum"
 		if ((#gear_for_this_slot == 0) and (current_slot_id < #(res.slots))) then
 			append(built_sets, permute_gear(current_slot_id + 1, my_set))
 		end
@@ -303,12 +484,21 @@ function evaluate_set_permutations(gear_list, utility_function)
 	end
 
 	num_permute_calls = 0
-	return #(permute_gear(0, {}))
+	goal_permute_calls = 1
+	for k,v in pairs(gear_list) do
+		print(k)
+		--print(v)
+		if tcount(v) > 0 then goal_permute_calls = goal_permute_calls * tcount(v) end
+		print("tcount(v) = " .. tcount(v) .. "  --- total " .. goal_permute_calls)
+	end
+	print("Would run " .. goal_permute_calls .. "permutations")
+	--return #(permute_gear(0, {}))
+	return 0
 
 	--categorized_gear_list = categorize_gear_by_slot(gear_list)
 	--local i1 = 0
 	--while(i1 < #(res.slots)) do
-	--	local slot_name_1 = res.slots[i1].en
+	--	local slot_name_a = res.slots[i1].en
 	--	local i2 = i1 + 1
 	--	while i2 < #(res.slots) do
 	--		local slot_name_2 = res.slots[i2].en
@@ -320,7 +510,7 @@ function evaluate_set_permutations(gear_list, utility_function)
 end
 
 
---windower.register_event('action message',function (actor_id, target_id, actor_index, target_index, message_id, param_1, param_2, param_3)
+--windower.register_event('action message',function (actor_id, target_id, actor_index, target_index, message_id, param_one, param_2, param_3)
 --	--if actor_id ~= windower.ffxi.get_player().id then return end
 --	log("Message " .. message_id)
 --end)
@@ -360,8 +550,8 @@ end
 
 
 handle_command = function(p1, p2)
-	local target = windower.ffxi.get_mob_by_target("t")
-	print(target)
+	--local target = windower.ffxi.get_mob_by_target("t")
+	--print(target)
 
 	--local player = get_player()
 	--print(player.main_job .. player.main_job_level)
@@ -381,11 +571,17 @@ handle_command = function(p1, p2)
 
 	--print("sadfgadfg")
 
-	--local result = get_set_permutations(categorize_gear_by_slot(get_relevant_gear("auto_attack")))
-	--print(type(result) .. " : " .. result)
-	--result = nil
+	--local result = evaluate_set_permutations(categorize_gear_by_slot(get_relevant_gear("auto_attack")))
+
+	local result = filter_dimensional(categorize_gear_by_slot(get_relevant_gear("auto_attack")), purposes.auto_attack.utility)
+	print(" ------- DING, FRIES ARE DONE -------")
+	print(type(result) .. " : " .. tostring(result))
+	result = nil
+
+	--print(resources.slots)
 
 	--print(get_modifier_id("atk"))
+
 end
 
 

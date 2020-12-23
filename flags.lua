@@ -1,5 +1,5 @@
 
-return  {
+local ret = {
 job_flags =
 {
 	WAR = 2,
@@ -70,5 +70,12 @@ slot_flags =
 	ring2 = 16384,
 	back = 32768,
 },
-
 }
+
+ret.slot_index = {}
+for k,v in pairs(resources.slots) do
+	ret.slot_index[v.id] = v.en
+	ret.slot_index[v.en] = v.id
+end
+
+return ret

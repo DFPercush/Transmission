@@ -8,7 +8,7 @@ hitdmg = total_damage / swings
 
 3d projection filter
 
-for each axis:
++ for each axis:
 	sort in descending order of that coordinate and iterate from max down:
 		if next point <= in all other axes than the last point, remove it
 		if they're equal in primary iteration axis, 
@@ -16,3 +16,13 @@ for each axis:
 			when you have multiple goods in the prev round, see if it increases the stat from the minimum of them.
 			Silver_Skree: The next point needs to have AN axis value that's better than the combined minimums of all the last good points
 
+TODO:
+	Rings and Earrings are slot-flagged for only the left
+	also weapons if dual wielding
+
+add some small value for any stat given?
+general item level?
+whether more or less of a stat counts as good (delay -)
+	dusk gear
+	consider naked slot
+filter out of gear list any stat you care about that's negative

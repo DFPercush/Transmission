@@ -2,6 +2,7 @@
 
 -- Windower resources
 local res = require("resources")
+local flags = require("flags")
 
 -- Typical call:  if hasbit(x, bit(3)) then ...
 function hasbit(x, p) return x % (p + p) >= p end
@@ -39,7 +40,13 @@ end
 
 function tcount(some_table)
 	local ret = 0
-	for k,v in pairs(some_table) do ret = ret + 1 end
+	-- leaving this out might help find some other problems
+	--if type(some_table) ~= "table" then return 0 end
+	for k,v in pairs(some_table) do
+		if type(v) ~= "function" then
+			ret = ret + 1
+		end
+	end
 	return ret
 end
 
@@ -221,7 +228,7 @@ end
 function max(...)
 	local len = select("#", ...)
 	local ret = select(1, ...)
-	for i in 1, len do
+	for i = 1, len do
 		local n = select(i, ...)
 		if type(n) == 'number' and n > ret then ret = n end
 	end
@@ -231,7 +238,7 @@ end
 function min(...)
 	local len = select("#", ...)
 	local ret = select(1, ...)
-	for i in 1, len do
+	for i = 1, len do
 		local n = select(i, ...)
 		if type(n) == 'number' and n < ret then ret = n end
 	end
@@ -246,12 +253,121 @@ function apply_item_mods(mod_accum, item)
 end
 
 function apply_set_mods(mod_accum, gear_set)
-	mod_accum = mod_accum or {}
 	for _, item in pairs(gear_set) do
 		apply_item_mods(mod_accum, item)
 	end
 end
 
+function apply_set_mods_by_index(mod_accum, gears, cur_indeces)
+	function get_slot(slot_name)
+		return gears[slot_name][cur_indeces[flags.slot_index[slot_name]+1]]
+	end
+	for k,slot_obj in pairs(resources.slots) do
+		local item = get_slot(slot_obj.en)
+		if item ~= nil then
+			apply_item_mods(mod_accum, item)
+		end
+	end
+end
+
 function get_modifier_id(alias)
 	return modifiers[get_modifier_by_alias(alias)]
+end
+
+-- multi_for_next:
+--  Increments a list of indexes or values and carries over when one of them exceeds max.
+--  It's like a state machine for a multi-dimensional for loop
+function multi_for_next(cur, min, max) -- returns true if can keep going, false when done. while next_carry(cur,max) do ... end
+	-- skipping bounds validation for speed
+	--if #cur > #max then
+	--	for i = #max + 1, #cur do max[i] = 0 end
+	--end
+	cur[1] = cur[1] + 1
+	--if (cur[1] <= max[1]) then return true end
+	local c = 1 -- carry
+	while (c <= #max) and (cur[c] >= max[c]) do
+		if c >= #max then return false end -- overflow, we're done
+		if cur[c] > max[c] then
+			cur[c] = min[c]
+			cur[c + 1] = cur[c + 1] + 1
+			c = c + 1
+		else
+			break
+		end
+	end
+	return true
+end
+
+
+local OCCASIONALLY_ATTACKS_AVERAGE = {
+	[1] = 1,
+	[2] = 1.44991,
+	[3] = 1.90021,
+	[4] = 2.49992,
+	[5] = 3.09979,
+	[6] = 3.5003,
+	[7] = 3.79998,
+	[8] = 3.81987,
+}
+function get_average_swings(gears, cur_indeces, mods, player)
+	function get_slot(slot_name)
+		return gears[slot_name][cur_indeces[flags.slot_index[slot_name]+1]] or {}
+	end
+	local swings = 1
+	-- occasionally attacks x times
+	-- MAX_SWINGS  battleutils -> getHitCount() (max 8)
+	local max_swings = 1
+	local main_hits = MULTI_HIT_WEAPONS[get_slot("Main").id or 0]
+	if main_hits ~= nil then max_swings = max_swings + main_hits end
+	local sub_hits = MULTI_HIT_WEAPONS[get_slot("Sub").id]
+	if (sub_hits ~= nil) then max_swings = max_swings + sub_hits end
+	if mods.MAX_SWINGS ~= nil then max_swings = max_swings + mods.MAX_SWINGS end
+	swings = OCCASIONALLY_ATTACKS_AVERAGE[min(8, mods.MAX_SWINGS)]
+	swings = swings + (forcenumber(mods.DOUBLE_ATTACK) * 1 / 100)
+	swings = swings + (forcenumber(mods.TRIPLE_ATTACK) * 2 / 100)
+	swings = swings + (forcenumber(mods.QUAD_ATTACK) * 3 / 100)
+	swings = swings + (forcenumber(mods.MYTHIC_OCC_ATT_TWICE) * 1 / 100)
+	swings = swings + (forcenumber(mods.MYTHIC_OCC_ATT_THRICE) * 2 / 100)
+
+	-- double attack
+	if ((player.main_job == "WAR" and player.main_job_level >= 25) or (player.sub_job == "WAR" and player.sub_job_level >= 25)) then
+		swings = swings + 0.1
+	elseif ((player.main_job == "BLU" and player.main_job_level >= 80)) then
+		swings = swings + 0.07
+	end
+
+	-- triple attack
+	if ((player.main_job == "THF" and player.main_job_level >= 55) or (player.main_job == "BLU" and player.main_job_level >= 96)) then
+		swings = swings + 0.1 -- 5% chance x2 additional attacks
+	end
+	-- TODO: triple attack II rate?
+
+	if swings > 8 then swings = 8 end
+	return swings
+end
+
+function feq(a, b, threshold_optional)
+	threshold_optional = (threshold_optional) or (0.0001 * a)
+	if a < b - threshold_optional then return false
+	elseif a > b + threshold_optional then return false
+	else return true
+	end
+end
+
+function condense(t, predicate)
+	function default_predicate(x)
+		return x == nil
+	end
+	predicate = predicate or default_predicate
+	--local read_from = 1
+	local write_to = 1
+	for read_from = 1, #t do
+		if not predicate(t[read_from]) then
+			t[write_to] = t[read_from]
+			write_to = write_to + 1
+		end
+	end
+	for i = write_to + 1, #t do
+		t[i] = nil
+	end
 end
