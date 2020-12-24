@@ -1,13 +1,5 @@
-haste = swings / time
 
-damage / swing
-
-hitdmg = total_damage / swings
-
-
-
-3d projection filter
-
++ 3d projection filter
 + for each axis:
 	sort in descending order of that coordinate and iterate from max down:
 		if next point <= in all other axes than the last point, remove it
@@ -16,13 +8,25 @@ hitdmg = total_damage / swings
 			when you have multiple goods in the prev round, see if it increases the stat from the minimum of them.
 			Silver_Skree: The next point needs to have AN axis value that's better than the combined minimums of all the last good points
 
-TODO:
-	Rings and Earrings are slot-flagged for only the left
-	also weapons if dual wielding
+. Rings and Earrings are slot-flagged for only the left
+	. minimum item id goes in left slot to avoid duplicates of just left-right swapped sets
+. also weapons if dual wielding
 
-add some small value for any stat given?
-general item level?
-whether more or less of a stat counts as good (delay -)
+/ handle restricted slots
+
+. add some small value for any stat given?
+	general item level?
++ whether more or less of a stat counts as good (delay -)
 	dusk gear
-	consider naked slot
-filter out of gear list any stat you care about that's negative
+	consider naked slot ?
+	see purpose.want_negative={[STAT_NAME] = true}
+
++ filter out of gear list any stat you care about that's negative
+
+--------------------------
+Skree
+
+● Currently, we're feeding a gear_list that has been filtered down to currently-equippable items into the permutator.
+	Do we want to instead permute ALL gear with a subtractive blend of jobs as we go, and build a larger but more general-purpose cache on disk?
+
+● ^ OR, iterate over the set of all purposes, and check whether each piece of gear (or each set?) gives ANY stats that are beneficial to a given purpose, and cache that it's relevant to that purpose

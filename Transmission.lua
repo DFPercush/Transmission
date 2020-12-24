@@ -31,16 +31,38 @@ require("multi_hit_weapons")
 -- From topaz/src/modifier.h
 -- cat mods-enum-cpp.txt | sed s/\\\ *\\\([A-Za-z0-9_]*\\\)\\\ *=\\\ *\\\([0-9]*\\\).*/\\\[\\\2\\\]=\\\"\\\1\\\",/ > modifiers.lua
 -- will require slight editing at beginning and end of file
-modifiers = require("modifiers")
+local modifiers = require("modifiers")
 	-- two-way mapping for modifiers
 	for k,v in pairs(modifiers) do
 		modifiers[v] = k
 	end
 
--- From topaz/sql/item_mods.sql
+
+	
+
+-- From sql/item_mods.sql
 -- OLD: cat item_mods.sql | sed s/[^0-9]*\\\([0-9]*\\\),\\\([0-9]*\\\),\\\([0-9-]*\\\).*/\{item_id=\\1,mod=\\2,value=\\3\},/ > item_mods_data.lua
 -- cat item_mods.sql | sed s/[^0-9\\-]*\\\([0-9]*\\\),\\\([0-9]*\\\),\\\([0-9-]*\\\).*/\{item_id=\\1,mod=\\2,value=\\3\},/ > item_mods_data.lua
 local item_mods_data = require("item_mods_data")
+
+-- SELECT itemId,dmg,delay FROM item_weapon;
+-- cat weapon_dmg_delay.csv | sed s/\\\([0-9]*\\\),\\\([0-9]*\\\),\\\([0-9]*\\\)/\\\{item_id=\\1,dmg=\\2,delay=\\3\\\},/ > weapon_dmg_delay.lua
+require("weapon_dmg_delay")
+for _,weapon_info in pairs(WEAPON_DAMAGE_DELAY) do
+	if forcenumber(weapon_info.dmg) ~= 0 then
+		item_mods_data[#item_mods_data+1] = {
+			item_id=weapon_info.item_id,
+			mod=160, -- DMG
+			value=weapon_info.dmg
+		}
+		item_mods_data[#item_mods_data+1] = {
+			item_id=weapon_info.item_id,
+			mod=171, -- DELAY
+			value=weapon_info.delay
+		}
+	end
+end
+
 item_mods = {}
 	-- convert relational database data to tables
 	-- item_mods[item_id][mod_index] = amount
@@ -53,6 +75,8 @@ item_mods_data = nil
 -- Here, a purpose means any action (like a spell, ability, or weapon skill),
 --	or state (like auto_attack, idle/movement speed), which can be boosted by gear.
 local purposes = require("purposes")
+
+require("rslot")
 
 
 
@@ -101,6 +125,7 @@ function filter_relevant(equipment_list, purpose)
 		return equipment_list
 	end
 
+	local good_item = false
 	for _, item in pairs(equipment_list) do
 		has = false
 		for _, mod_text in pairs(relevant_stats) do
@@ -111,16 +136,22 @@ function filter_relevant(equipment_list, purpose)
 			 and item_mods[item.id][mod_id] ~= nil
 			 and item_mods[item.id][mod_id] ~= 0
 			 then
-				--print(item_name(item) .. " has " .. mod_text)
-				ret[item.id] = item
-				has = true
-				break
+				good_item = true
+				-- is it actually a bonus, or a detriment
+				if (item_mods[item.id][mod_id] > 0) or
+				 ((purpose.want_negative ~= nil) and (purpose.want_negative[mod_text])) then
+					print(tostring(item.storage) .. "/" .. item_name(item) .. " has " .. mod_text)
+					ret[item.id] = item
+					has = true
+					break
+				end
 			end
 		end
 		if not has then
 			--print(item_name(item) .. " is not relevant")
 		end
 	end
+
 	--print(tcount(ret) .. " items")
 	return ret
 end
@@ -260,6 +291,17 @@ function categorize_gear_by_slot(gear_list)
 			end
 		end
 	end
+
+	-- Rings and earrings are only flagged for the left slot, copy to right
+	gear_list["Right Ear"] = gear_list["Left Ear"]
+	gear_list["Right Ring"] = gear_list["Left Ring"]
+	-- Weapons if dual wielding
+	if get_dual_wield_level(get_player()) > 0 then
+		for k, v in gear_list.Main do
+			gear_list["Sub"][k] = v
+		end
+	end
+
 	ret.count = {}
 	ret.count[1] = tcount(ret.Main)
 	ret.count[2] = tcount(ret.Sub)
@@ -297,12 +339,81 @@ function categorize_gear_by_slot(gear_list)
 end
 
 
-function filter_dimensional(gear_list, utility_function)
-	local lsi = 1 -- least significant index
-	local i = 1
-	--local cur = {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1}
+local function prune_sets(built_sets, purpose)
+	--[[
+		built_sets:
+			gear_list_ref{},
+			purpose_checked_against{},
+			apparent_utility_results[# of dimensions],
+			indices[slots]
+	]]
+
+	local prevRangeStart = 1
+	local prevRangeEnd = 1
+	local curRangeStart = 1
+	local curRangeEnd = 1
+	local keep = false
+	for dimension = 1,purpose.num_of_dimensions do
+		table.sort(built_sets, function(a, b) return a.apparent_utility_results[dimension] > b.apparent_utility_results[dimension] end)
+		curRangeStart = 1
+		curRangeEnd = 1
+		while curRangeEnd <= #built_sets do
+			prevRangeStart = curRangeStart
+			prevRangeEnd = curRangeEnd
+
+			-- Scan ahead in the list for all elements which are equal in current dimension
+			curRangeStart = prevRangeEnd + 1
+			curRangeEnd = curRangeStart
+			if (curRangeStart > #built_sets) then break end
+			while curRangeEnd < #built_sets and feq(built_sets[curRangeEnd].apparent_utility_results[dimension], built_sets[i].apparent_utility_results[dimension]) do
+				curRangeEnd = curRangeEnd + 1
+			end
+			
+			-- Now test this equal range against the last equal range
+			keep = false
+			for iViableCurrent = curRangeStart, curRangeEnd do
+				for iViablePrevious = prevRangeStart, prevRangeEnd do
+					for dim_cmp = 1, purpose.num_of_dimensions do
+						-- Is it better than something from the previous range
+						-- in at least one way?
+						if (built_sets[iViableCurrent] == nil) then
+							print("(debug) viable[" .. iViableCurrent .. "] == nil")
+						end
+						if (built_sets[iViablePrevious] == nil) then
+							print("(debug) viable[" .. iViablePrevious .. "] == nil")
+						end
+						if built_sets[iViableCurrent].apparent_utility_results[dim_cmp] > built_sets[iViablePrevious].apparent_utility_results[dim_cmp] then
+							keep = true
+							break
+						end
+					end
+					if keep then break end
+				end
+				if not keep then
+					built_sets[iViableCurrent].need_to_delete = true
+				end
+			end -- for iCur
+		end -- for i ... viable[i]
+
+		-- Clean up .need_to_delete
+		filter_array_in_place(built_sets, function(t) return t.need_to_delete end)
+	end -- for dimension = 1, purpose.num_of_dimensions
+end -- function prune_sets
+
+
+function filter_dimensional(gear_list, purpose)
+	-- Schema:
+	-- gear_list[slot name][1~n] = an item
+	-- e.g. gear_list["Head"][1].id  <-- is item id of an equippable head piece
+	
+	-- TODO: Separation of concerns: Building the permuted sets vs. evaluating if they're any good
+	--[[ referenced_set = {
+		gear_list_ref = gear_list
+		indices = {#,#,#,#,#,#,#,#,#,#,#,#,#,#,#,#}
+	} ]]
 	local cur = {0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1}
 	local min = shallow_copy(cur)
+	min[1] = 1
 	local max = {}
 	for x=1,16 do
 		max[x] = tcount(gear_list[x])
@@ -311,131 +422,74 @@ function filter_dimensional(gear_list, utility_function)
 	print("max = " .. tostring(max))
 	
 	local count = 0
-	local viable = {}
+	local built_sets = {}
 	local player = get_player()
 	local result
-	local vector_size
-	local keep
-	--local prev
 
-	local prevRangeStart = 1
-	local prevRangeEnd = 1
-	local curRangeStart = 1
-	local curRangeEnd = 1
+
+	--local built_sets_last_index
 	--local min_bonuses = {}
 	--repeat -- main combinator loop
-	while multi_for_next(cur, min, max) do
+	print("cur at start = " .. tostring(cur))
+	while multi_dimension_next(cur, min, max) do
+		print("sanity check ".. count)
+
 		result = {}
-		vector_size = utility_function(gear_list, cur, result, player)
-		-- TODO: store which gear this result is for.
-		--append(viable, result)
-		viable[#viable+1] = result
-		count = count + 1
-		--print("viable = " .. tostring(viable))
+
+		-- Skip duplicate items in rings, earrings and weapons.
+		-- Since this tests for equal table references, two distinct items of the
+		-- same id will still be able to be equipped.
+
+		print("cur = " .. tostring(cur))
+		print("cur[flags.slot_index[Left Ear]] = " .. cur[flags.slot_index["Left Ear"]])
+		print("cur[flags.slot_index[Right Ear]] = ".. cur[flags.slot_index["Right Ear"]]
+	)
+		if (cur[flags.slot_index["Left Ear"]] ~= cur[flags.slot_index["Right Ear"]])
+		 and (cur[flags.slot_index["Left Ring"]] ~= cur[flags.slot_index["Right Ring"]])
+		 and (cur[flags.slot_index["Main"]] ~= cur[flags.slot_index["Sub"]])
+		 then
+			print("dbg 2")
+			-- TODO: Are there any restricted slots? (tunics remove headgear, etc)
+			for k,v in pairs(cur) do
+				--if RESTRICTED_SLOTS[gear_set[k][v]]
+			end
+
+			-- Store the utility results and a way to reference the gear set it's looking at
+			-- TODO: +? convert code that expects built_set[dimension] to built_sets.apparent_utility_results[dimension]
+			built_sets[#built_sets+1] = {
+				gear_list_ref = gear_list,
+				purpose_checked_against = purpose,
+				apparent_utility_results = purpose.apparent_utility(gear_list, cur, player), -- Main evaluation for the purpose in question.
+				indices = shallow_copy(cur)
+			}
+
+			-- To extract the gear set and equip it, you will need gear_set as well as viable[x].indeces
+			-- for each slot, equip gear_set[slot_name][viable[x].indeces[slot_id]]
+
+			count = count + 1
+			--print("viable = " .. tostring(viable))
+		end
+
 
 		-- TODO: Remove limiter
 		if count > 1e6 then return 0 end
 
+
 		if (count % 10000 == 0) then
 			print(cur[1] .. ", " .. cur[2] .. ", " .. cur[3] .. ", " .. cur[4] .. ", " .. cur[5] .. ", " .. cur[6] .. ", " .. cur[7] .. ", " .. cur[8] .. ", " .. cur[9] .. ", " .. cur[10] .. ", " .. cur[11] .. ", " .. cur[12] .. ", " .. cur[13] .. ", " .. cur[14] .. ", " .. cur[15] .. ", " .. cur[16])
-
-			-- This is the "filter" part.
-			-- Eliminate sets based on whether they actually improve at least one thing.
-			for dimension = 1,vector_size do
-				table.sort(viable, function(a, b)
-					return a[dimension] > b[dimension]
-				end)
-				
-
-				--prev = viable[1]
-				curRangeStart = 1
-				curRangeEnd = 1
-				--for i = 2, #viable do
-				while curRangeEnd <= #viable do
-					prevRangeStart = curRangeStart
-					prevRangeEnd = curRangeEnd
-
-					-- Scan ahead in the list for all equal elements
-					curRangeStart = prevRangeEnd + 1
-					curRangeEnd = curRangeStart
-					if (curRangeStart > #viable) then break end
-					--print("dbg 1")
-					while curRangeEnd < #viable and feq(viable[curRangeEnd][dimension], viable[i][dimension]) do
-						curRangeEnd = curRangeEnd + 1
-					end
-					--print("dbg 2")
-					
-					keep = false
-					for iCur = curRangeStart, curRangeEnd do
-						for iPrev = prevRangeStart, prevRangeEnd do
-							for dim_cmp = 1, vector_size do
-								-- Is it better than something from the previous range
-								-- in at least one way?
-								if (viable[iCur] == nil) then
-									print("viable[" .. iCur .. "] == nil")
-								end
-								if (viable[iPrev] == nil) then
-									print("viable[" .. iPrev .. "] == nil")
-								end
-								if viable[iCur][dim_cmp] > viable[iPrev][dim_cmp] then
-									keep = true
-									break
-								end
-							end
-							if keep then break end
-						end
-						if not keep then
-							viable[iCur].need_to_delete = true
-						end
-					end
-					--print("dbg 3")
-
-					-- Build an array of equal on primary axis
-					-- list of previous compare-to items
-					-- new item must be better than the min stat
-
-					--[[
-					for d in 1, vector_size do
-						min_bonuses[d] = 9999
-					end
-
-					keep = false
-					for dim_cmp = 1, vector_size do
-						if viable[i][dim_cmp] > prev[dim_cmp] then
-							keep = true
-							break
-						end
-					end
-					prev = viable[i]
-					]]
-				end -- for i ... viable[i]
-
-				-- Clean up .need_to_delete
-				condense(viable, function(t) return t.need_to_delete end)
-				--print("dbg 4")
-			end -- for dimension = 1, vector_size
 			
+			prune_sets(built_sets, purpose)
 		end -- if count % something
 	--until multi_for_next(cur, min, max) == false
 	end
 
-	print("filter_dimensional: " .. count .. " iterations complete.")
-	print(#viable .. " viable sets")
-	print(" [1] = ")
-	print(viable[1])
+	-- Once more with feeling
+	prune_sets(built_sets, purpose)
 
-	--if true then return 0 end
-	--[[
-	local zcount = tcount(gear_list[1])
-	repeat
-		
-		i = i + 1
-		if (i > tcount(gear_list[lsi])) then
-			lsi = lsi + 1
-			i = 1
-		end
-	until (lsi == 1 and i > zcount)
-	]]
+	print("filter_dimensional: " .. count .. " iterations complete.")
+	print(#built_sets .. " viable sets")
+	print(" [1] = ")
+	print(built_sets[1])
 end
 
 
@@ -573,10 +627,15 @@ handle_command = function(p1, p2)
 
 	--local result = evaluate_set_permutations(categorize_gear_by_slot(get_relevant_gear("auto_attack")))
 
-	local result = filter_dimensional(categorize_gear_by_slot(get_relevant_gear("auto_attack")), purposes.auto_attack.utility)
+	-- [[
+	local result = filter_dimensional(categorize_gear_by_slot(get_relevant_gear("auto_attack")), purposes.auto_attack)
 	print(" ------- DING, FRIES ARE DONE -------")
-	print(type(result) .. " : " .. tostring(result))
+	print("result is a " .. type(result)) -- .. " : " .. tostring(result))
+	if type(result) == "table" then
+		print(tcount(result) .. " entries")
+	end
 	result = nil
+	--]]
 
 	--print(resources.slots)
 

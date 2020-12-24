@@ -20,7 +20,7 @@ end
 
 function get_modifier_by_alias(alias)
 
-	if modifiers[string.upper(alias)] ~= nil then return alias end
+	if modifiers[string.upper(alias)] ~= nil then return string.upper(alias) end
 	if modifier_alias_map[string.upper(alias)] ~= nil then return modifier_alias_map[string.upper(alias)] end
 	return "?"
 end

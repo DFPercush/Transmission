@@ -1,13 +1,13 @@
 
+local r = {}
 
-return {
-
-	auto_attack = 
+r.auto_attack = 
 	{
-		utility = function(gears, cur_indeces, return_vector, player_optional)
+		num_of_dimensions = 3, -- Could possibly make this a table that describes the dimensions, and if you want the number, just get the length of the table
+		apparent_utility = function(gear_list, cur_indeces, player_optional)
 			EMPTY_TABLE = {}
 			function get_slot(slot_name)
-				local item = gears[slot_name][cur_indeces[TM_FLAGS.slot_index[slot_name]+1]]
+				local item = gear_list[slot_name][cur_indeces[TM_FLAGS.slot_index[slot_name]+1]]
 				if (item == nil) then return EMPTY_TABLE end
 				return item
 			end
@@ -49,13 +49,13 @@ return {
 
 			local total_mods = {} -- TODO: Memory allocation overhead?
 			--apply_set_mods(total_mods, gear_set);
-			apply_set_mods_by_index(total_mods, gears, cur_indeces)
+			apply_set_mods_by_index(total_mods, gear_list, cur_indeces)
 
 			-- Assuming we hit, how much damage
 			local att = forcenumber(total_mods.ATT)
 			local str = forcenumber(total_mods.STR)
 			local estimate_per_swing = str * ((str/2) + att)
-			local estimate_swings = get_average_swings(gears, cur_indeces, total_mods, player)
+			local estimate_swings = get_average_swings(gear_list, cur_indeces, total_mods, player)
 
 			-- returns:
 				-- [1] = attack/str
@@ -71,7 +71,7 @@ return {
 				((natural_h2h_damage + forcenumber(total_mods.KICK_DMG)) * forcenumber(total_mods.KICK_ATTACK_RATE) / 100 / weapon_delay);
 			return_vector[2] = forcenumber(total_mods.ACC)
 			return_vector[3] = forcenumber(total_mods.HASTE_GEAR)
-			return 3
+			return return_vector
 		end,
 		
 		relevant_modifiers = 
@@ -155,26 +155,31 @@ return {
 			"AMMO_SWING_TYPE",
 			"AUGMENTS_AMBUSH",
 		},
-	},
+		want_negative = {"DELAY"}
+	}
 
-	build_tp =
-	{
-	},
-	ws =
-	{
-	},
-	tank =
-	{
-	},
-	rest = 
-	{
-	},
-
-	elemental =
-	{
-	},
-	dark =
-	{
-	},
-
+r.build_tp =
+{
+	num_of_dimensions = 0,
+	apparent_utility = function(gear_list, cur_indeces, player_optional) end,
+	relevant_modifiers = {},
+	want_negative = {}
 }
+r.ws =
+{
+}
+r.tank =
+{
+}
+r.rest = 
+{
+}
+
+r.elemental =
+{
+}
+r.dark =
+{
+}
+
+return r

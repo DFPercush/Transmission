@@ -277,7 +277,7 @@ end
 -- multi_for_next:
 --  Increments a list of indexes or values and carries over when one of them exceeds max.
 --  It's like a state machine for a multi-dimensional for loop
-function multi_for_next(cur, min, max) -- returns true if can keep going, false when done. while next_carry(cur,max) do ... end
+function multi_dimension_next(cur, min, max) -- returns true if can keep going, false when done. while next_carry(cur,max) do ... end
 	-- skipping bounds validation for speed
 	--if #cur > #max then
 	--	for i = #max + 1, #cur do max[i] = 0 end
@@ -347,14 +347,14 @@ function get_average_swings(gears, cur_indeces, mods, player)
 end
 
 function feq(a, b, threshold_optional)
-	threshold_optional = (threshold_optional) or (0.0001 * a)
+	threshold_optional = (threshold_optional) or (0.001 * b)
 	if a < b - threshold_optional then return false
 	elseif a > b + threshold_optional then return false
 	else return true
 	end
 end
 
-function condense(t, predicate)
+function filter_array_in_place(t, predicate)
 	function default_predicate(x)
 		return x == nil
 	end

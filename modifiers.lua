@@ -1,9 +1,5 @@
 
--- purposes:
---		tank
---		
-
-return
+local modifiers =
 {
 [0]="NONE",
 	--[]="NAME",
@@ -804,3 +800,5 @@ return
 	--[987]="SPARE",
 	--[988]="SPARE",
 }
+
+return modifiers
