@@ -9,7 +9,8 @@ r.auto_attack =
 		apparent_utility = function(gear_list, cur_indeces, player_optional)
 			
 			function get_slot(slot_name)
-				local item = gear_list[slot_name][cur_indeces[TM_FLAGS.slot_index[slot_name]+1]]
+				--local item = gear_list[slot_name][cur_indeces[TM_FLAGS.slot_index[slot_name]+1]]
+				local item = gear_list[slot_name][cur_indeces[TM_FLAGS.slot_index[slot_name]]]
 				if (item == nil) then return EMPTY_TABLE end
 				return item
 			end
@@ -56,7 +57,7 @@ r.auto_attack =
 			-- Assuming we hit, how much damage
 			local att = forcenumber(total_mods.ATT)
 			local str = forcenumber(total_mods.STR)
-			local estimate_per_swing = str * ((str/2) + att)
+			local estimate_per_swing = weapon_damage + (str * ((str/2) + att))
 			local estimate_swings = get_average_swings(gear_list, cur_indeces, total_mods, player)
 
 			-- returns:
@@ -68,12 +69,16 @@ r.auto_attack =
 				--EXTRA_DUAL_WIELD_ATTACK
 				--EXTRA_KICK_ATTACK
 			-- TODO: There a lot more to account for in auto_attack, but we've got something for testing the algorithm
+
+			print("estimate_per_swing = " .. estimate_per_swing)
+			print("estimate_swings =" .. estimate_swings)
+			print("weapon_delay = " .. weapon_delay)
 			local ret = {}
 			ret[1] = 
 				(estimate_per_swing * estimate_swings / weapon_delay) + 
 				((natural_h2h_damage + forcenumber(total_mods.KICK_DMG)) * forcenumber(total_mods.KICK_ATTACK_RATE) / 100 / weapon_delay);
 			ret[2] = forcenumber(total_mods.ACC)
-			ret[3] = forcenumber(total_mods.HASTE_GEAR)
+			ret[3] = forcenumber(total_mods.HASTE_GEAR) -- TODO: Delay on weapons
 			return ret
 		end,
 		

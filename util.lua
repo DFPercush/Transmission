@@ -312,6 +312,19 @@ function multi_dimension_next(cur, min, max) -- returns true if can keep going, 
 	return true
 end
 
+function zero_based_array_tostring_horizontal(a)
+	if a == nil then return "nil" end
+	local ret = "{"
+	for i = 0, #a do
+		if i > 0 then
+			ret = ret .. ", "
+		end
+		ret = ret .. a[i]
+	end
+	ret = ret .. "}"
+	return ret
+end
+
 function array_tostring_horizontal(a)
 	if a == nil then return "nil" end
 	local ret = "{"
@@ -384,16 +397,36 @@ function filter_array_in_place(t, predicate)
 	function default_predicate(x)
 		return x == nil
 	end
-	predicate = predicate or default_predicate
+	if predicate == nil then predicate = default_predicate end
+	--predicate = predicate or default_predicate
 	--local read_from = 1
 	local write_to = 1
-	for read_from = 1, #t do
+	local len = #t
+	print("filter_array_in_place(): len = " .. len)
+	for read_from = 1, len do
 		if not predicate(t[read_from]) then
+			print("[" .. read_from .. "]" .. " -> [" .. write_to .. "]")
 			t[write_to] = t[read_from]
 			write_to = write_to + 1
+		else
+			print("skip [" .. read_from .. "]")
 		end
 	end
-	for i = write_to + 1, #t do
+	print("[" .. (write_to) .. "-" .. len .. "] <- nil")
+	--for i = write_to + 1, len do
+	for i = write_to, len do
 		t[i] = nil
 	end
+end
+
+function get_equipment_slot_id_of_item(item)
+	if item == nil or item.id == nil or res.items[item.id] == nil or res.items[item.id].slots == nil then return nil end
+	for _, slot in pairs(resources.slots) do
+		if res.items[item.id].slots[slot.id] then return slot.id end
+	end
+	return nil
+end
+
+function get_slot_name_of_item(item)
+	return resources.slots[get_equipment_slot_id_of_item(item)].en
 end

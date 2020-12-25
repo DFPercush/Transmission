@@ -25,8 +25,16 @@
 
 + filter out of gear list any stat you care about that's negative
 
+. Add a member gear_list:resource(slot) and maybe other info (weapon damage?)
+	(to avoid having inner functions in every purpose utility)
+
+. filter duplicate gear from relevant_gear except rings, earrings, weapons
+	e.g. stacks of arrows
+
 --------------------------
 Skree
+
+● HOW DO I ACCESSED AUGMENT
 
 ● Currently, we're feeding a gear_list that has been filtered down to currently-equippable items into the permutator.
 	Do we want to instead permute ALL gear with a subtractive blend of jobs as we go, and build a larger but more general-purpose cache on disk?
