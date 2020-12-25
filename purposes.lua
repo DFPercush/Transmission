@@ -70,14 +70,14 @@ r.auto_attack =
 				--EXTRA_KICK_ATTACK
 			-- TODO: There a lot more to account for in auto_attack, but we've got something for testing the algorithm
 
-			print("estimate_per_swing = " .. estimate_per_swing)
-			print("estimate_swings =" .. estimate_swings)
-			print("weapon_delay = " .. weapon_delay)
+			--print("estimate_per_swing = " .. estimate_per_swing)
+			--print("estimate_swings =" .. estimate_swings)
+			--print("weapon_delay = " .. weapon_delay)
 			local ret = {}
 			ret[1] = 
 				(estimate_per_swing * estimate_swings / weapon_delay) + 
 				((natural_h2h_damage + forcenumber(total_mods.KICK_DMG)) * forcenumber(total_mods.KICK_ATTACK_RATE) / 100 / weapon_delay);
-			ret[2] = forcenumber(total_mods.ACC)
+			ret[2] = forcenumber(total_mods.ACC) -- TODO: peacock charm showing 0?
 			ret[3] = forcenumber(total_mods.HASTE_GEAR) -- TODO: Delay on weapons
 			return ret
 		end,

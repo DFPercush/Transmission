@@ -402,17 +402,17 @@ function filter_array_in_place(t, predicate)
 	--local read_from = 1
 	local write_to = 1
 	local len = #t
-	print("filter_array_in_place(): len = " .. len)
+	--print("filter_array_in_place(): len = " .. len)
 	for read_from = 1, len do
 		if not predicate(t[read_from]) then
-			print("[" .. read_from .. "]" .. " -> [" .. write_to .. "]")
+			--print("[" .. read_from .. "]" .. " -> [" .. write_to .. "]")
 			t[write_to] = t[read_from]
 			write_to = write_to + 1
 		else
-			print("skip [" .. read_from .. "]")
+			--print("skip [" .. read_from .. "]")
 		end
 	end
-	print("[" .. (write_to) .. "-" .. len .. "] <- nil")
+	--print("[" .. (write_to) .. "-" .. len .. "] <- nil")
 	--for i = write_to + 1, len do
 	for i = write_to, len do
 		t[i] = nil

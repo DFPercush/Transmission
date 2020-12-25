@@ -31,6 +31,8 @@
 . filter duplicate gear from relevant_gear except rings, earrings, weapons
 	e.g. stacks of arrows
 
+. certain weapons can not be dual wielded / sub slot
+
 --------------------------
 Skree
 

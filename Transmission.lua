@@ -16,8 +16,8 @@ _addon.commands = {'tm', 'transmission'}
 -- Config
 MAX_ITERATIONS_LIMIT = 10000  -- hard fail safe on max run time
 PRUNE_SETS_INTERVAL_COUNT = 100  -- number of combinations to accumulate before pruning
-local PERMUTE_BATCH_SIZE = 100  -- Set combinations
-local PERMUTE_BATCH_INTERVAL_TIME = 1 -- Seconds
+local PERMUTE_BATCH_SIZE = 1000  -- Set combinations
+local PERMUTE_BATCH_DELAY = 1 -- Seconds
 -- There is also TEST_COMBINATION_FUNCTION - use search, must be defined below
 
 -- Windower components
@@ -112,10 +112,6 @@ function can_equip(item, player_optional)
 	if res_item.category ~= "Weapon" and res_item.category ~= "Armor" then return false end
 
 	if item ~= nil and item.id ~= nil and res.items[item.id] ~= nil then
-		--print("races")
-		--print(res_item.races)
-		--if not testflag(res_item.races, 2^player.race) then return false end
-		--if not testflag(res_item.jobs, job_flags[player.main_job]) then return false end
 		if not res_item.races[player.race] then return false end
 		if not res_item.jobs[job_index[player.main_job]] then return false end
 		if player.main_job_level < res_item.level then return false end
@@ -125,16 +121,6 @@ function can_equip(item, player_optional)
 end
 
 function filter_relevant(equipment_list, purpose_name)
-
-	-- debugging
-	print("Filter dimensional: equipment list has length " .. #equipment_list)
-	for k,v in pairs(equipment_list) do
-		local tmpName = resources.items[v.id].en
-		if string.find(tmpName, "Courage") then
-			print("Original list hit for " .. tmpName)
-		end
-	end
-
 	local ret = {}
 	local has = false
 	local relevant_stats
@@ -171,8 +157,6 @@ function filter_relevant(equipment_list, purpose_name)
 				-- is it actually a bonus, or a detriment
 				if (item_mods[item.id][mod_id] > 0) or
 				 ((purpose.want_negative ~= nil) and (purpose.want_negative[mod_text])) then
-					print(tostring(item.storage) .. "/" .. item_name(item) .. " has " .. mod_text)
-					
 					-- Prevent duplicates like multiple stacks of ammo, randomly dropped armor etc
 					local num_this_item = 0
 					for iRet = 1, #ret do
@@ -187,12 +171,7 @@ function filter_relevant(equipment_list, purpose_name)
 				end
 			end
 		end
-		if not has then
-			--print(item_name(item) .. " is not relevant")
-		end
 	end
-
-	--print(tcount(ret) .. " items")
 	return ret
 end
 
@@ -313,8 +292,6 @@ function get_equippable_equipment()
 			end -- for items in bag
 		end -- if valid bag
 	end -- for bagId
-
-	print("get_equippable_equipment() added " .. num_added .. " items, returning " .. #ret .. " items")
 	return ret
 end
 
@@ -326,11 +303,6 @@ end
 function categorize_gear_by_slot(gear_list)
 	local ret = {}
 	local gear_list_copy = shallow_copy(gear_list)
-	print("categorize_gear_by_slot: gear_list = ")
-	--print(gear_list)
-	for k,item in pairs(gear_list) do
-		print("  [" .. k .. "] = " .. resources.items[item.id].en)	
-	end
 	for _, slot in pairs(res.slots) do
 		ret[slot.en] = {}
 		for equipment_item_index, equipment_item in pairs(gear_list_copy) do
@@ -381,11 +353,6 @@ function prune_sets(built_sets, purpose)
 		curRangeStart = 0
 		curRangeEnd = 0
 
-		print("built_sets = ...")
-		for _,v in pairs(built_sets) do
-			print("  " .. array_tostring_horizontal(v.apparent_utility_results))
-		end
-
 		while curRangeEnd <= #built_sets do
 			prevRangeStart = curRangeStart
 			prevRangeEnd = curRangeEnd
@@ -395,33 +362,24 @@ function prune_sets(built_sets, purpose)
 			curRangeEnd = curRangeStart
 			if (curRangeStart > #built_sets) then break end
 
-			--print("curRangeEnd")
 			while curRangeEnd <= #built_sets and feq(built_sets[curRangeEnd].apparent_utility_results[dimension], built_sets[curRangeStart].apparent_utility_results[dimension]) do
-				print("Current range (dim " .. dimension .. ") " .. built_sets[curRangeEnd].apparent_utility_results[dimension] .. " == " .. built_sets[curRangeStart].apparent_utility_results[dimension])
 				curRangeEnd = curRangeEnd + 1
 			end
 			curRangeEnd = curRangeEnd - 1
-
-			print("[" .. prevRangeStart .. "-" .. prevRangeEnd .. "] <> [" .. curRangeStart .. "-" .. curRangeEnd .. "]")
 
 			-- Test for coincidence / equality among current range
 			-- Meaning, not just the primary dimension, but all relevant utility metrics are equal
 			local different
 			for iCoincide = curRangeStart + 1, curRangeEnd do
 				different = false
-				print(array_tostring_horizontal(built_sets[curRangeStart].apparent_utility_results) .. " =? " .. 
-				      array_tostring_horizontal(built_sets[iCoincide    ].apparent_utility_results))
 				for iDim = 1, purpose.num_of_dimensions do
-					--print(built_sets[curRangeStart].apparent_utility_results[iDim] .. " =? " .. built_sets[iCoincide].apparent_utility_results[iDim])
 					if not feq(built_sets[curRangeStart].apparent_utility_results[iDim], built_sets[iCoincide].apparent_utility_results[iDim]) then
 						different = true
 						break
 					end
 				end
 				if not different then
-					print("equal")
 					built_sets[iCoincide].need_to_delete = true
-				else print("not equal")
 				end
 			end
 			
@@ -507,78 +465,44 @@ local function initializer_factory(gear_list)
 	return r
 end
 
-g_temp_counter = 0
-
 local function iterator_factory(gear_list)
 	local initializer = initializer_factory(gear_list)
 	return function(gear_indices) -- State-capturing custom iterator that uses the set and gear list to solve permuting sets
-		g_temp_counter = g_temp_counter + 1
-		local print_everything = false
-		if ((g_temp_counter > 16) and (g_temp_counter < 20)) then 
-			print_everything = true
-		end
-		
 		local sloti = 0
-		if print_everything then print(" ") end
-		if print_everything then print("Entering iterator function...") end
 		while (sloti <= #gear_indices) do
-			if print_everything then print("sloti = " .. sloti) end
 			if ((sloti < 11) or (sloti > 14)) then 
-				if print_everything then print("Entered normal gear branch") end
 				-- "Normal" gear slots
 				local init_value
 				if (gear_list.count[sloti] > 0) then init_value = 1 else init_value = 0 end
-				if print_everything then print("init_value = " .. init_value) end
 				if (gear_indices[sloti] < gear_list.count[sloti]) then
-					if print_everything then print("         " .. zero_based_array_tostring_horizontal(gear_indices) .. " -> ") end
 					gear_indices[sloti] = gear_indices[sloti] + 1;
-					print("         " .. zero_based_array_tostring_horizontal(gear_indices))
-					if print_everything then print("Exiting iterator function with true...") end
 					return true
 				else
-					if print_everything then print("Maxed out on " .. resources.slots[sloti].en) end
 					gear_indices[sloti] = init_value
-					if print_everything then print("Reinitialized " .. resources.slots[sloti].en .. " to " .. init_value) end
 				end
-				if print_everything then print("Incrementing sloti by 1 and looping...") end
 				sloti = sloti + 1
 			else
 				-- Rings and Earrings
-				if print_everything then print("Entered [ear]ring branch with sloti of " .. sloti) end
 				local r_or_e = gear_list[sloti]
 				local init_value
 				if (#r_or_e > 0) then init_value = 1 else init_value = 0 end
-				if print_everything then print("Init value = " .. init_value) end
 				if (gear_indices[sloti] == gear_indices[sloti+1]) then
 					print("This shouldn't happen! Was the set list initialized with the same values in rings or earring slots?")
 					return false
 				elseif (gear_indices[sloti] < #r_or_e) then
-					if print_everything then print("         " .. zero_based_array_tostring_horizontal(gear_indices) .. " -> ") end
 					gear_indices[sloti] = gear_indices[sloti] + 1
-					print("         " .. zero_based_array_tostring_horizontal(gear_indices))
-					if print_everything then print("Exiting iterator function with true (1)...") end
 					return true
-				--elseif ((gear_indices[sloti+1] < #r_or_e) and (#r_or_e >= 2)) then
 				elseif ((gear_indices[sloti+1] < #r_or_e) and (gear_indices[sloti+1]+1 < gear_indices[sloti])) then
-					if print_everything then print("         " .. zero_based_array_tostring_horizontal(gear_indices) .. " -> ") end
 					gear_indices[sloti+1] = gear_indices[sloti+1] + 1
 					gear_indices[sloti] = gear_indices[sloti+1] + 1
-					print("         " .. zero_based_array_tostring_horizontal(gear_indices))
-					if print_everything then print("Exiting iterator function with true (2)...") end
 					return true
 				else
-					if print_everything then print("Maxed out on " .. resources.slots[sloti].en) end
-					-- lol {initializer.rings, initializer.earrings}[{[11]=1,[12]=1,[13]=2,[14]=2}[sloti]](gear_indices)
 					if ((sloti == 11) or (sloti == 12)) then
 						initializer.init_earrings(gear_indices)
 					elseif ((sloti == 13) or (sloti == 14)) then
 						initializer.init_rings(gear_indices)
 					end
-					if print_everything then print("Reinitialized slots to {[" .. sloti .. "] = " .. gear_indices[sloti] .. ", [" .. sloti+1 .. "] = " .. gear_indices[sloti+1] .. "}") end
-					--set[sloti] = init_value
-					--if (#r_or_e >= 2) then set[sloti+1] = init_value + 1 else set[sloti+1] = 0 end
 				end
-				if print_everything then print("Incrementing sloti by 2 and looping...") end
 				sloti = sloti + 2
 			end
 			--[[
@@ -591,8 +515,6 @@ local function iterator_factory(gear_list)
 		end
 		return false
 		--[[
-			TODO: Special casing for rings and earrings, i.e:
-
 			TODO: Mind the exclusion nature of weapons, shields, grips etc.
 			i.e. 2h weapons only allow grips and such in the sub slot, not other 1h weapons
 		]]
@@ -609,9 +531,7 @@ function filter_dimensional(gear_list, purpose, done_callback)
 	local iterator = iterator_factory(gear_list)
 
 	local count = 0
-	local built_sets = {}
 	local player = get_player()
-	print("cur at start = " .. array_tostring_horizontal(cur_indices))
 	capturable_purpose = purpose
 	
 	periodic_permute = function(cur_indices, built_sets, batch_size, count, done_callback)
@@ -619,20 +539,25 @@ function filter_dimensional(gear_list, purpose, done_callback)
 		local e = count + batch_size
 		for i = s, e-1 do 
 			if(iterator(cur_indices)) then
-				--print(count .. " : " .. array_tostring_horizontal(cur_indices))
-				--print(gear_list.Range)
 				built_sets[#built_sets+1] = {
 					gear_list_ref = gear_list,
 					purpose_checked_against = purpose,
 					apparent_utility_results = purpose.apparent_utility(gear_list, cur_indices, player), -- Main evaluation for the purpose in question.
 					indices = shallow_copy(cur_indices)
 				}
+				count = count + 1
 				if ((count % PRUNE_SETS_INTERVAL_COUNT) == 0) then
 					prune_sets(built_sets, purpose)
 				end
-				count = count + 1
-				if (count == e) then
-					schedule(function() periodic_permute(cur_indices, built_sets, batch_size, count, done_callback) end, PERMUTE_BATCH_INTERVAL_TIME)
+				if (count > MAX_ITERATIONS_LIMIT) then
+					-- TODO: If using promises, might want to reject with "too complex" error or something similar
+					print("Hard cap reached: " .. MAX_ITERATIONS_LIMIT .. " iterations.")
+					done_callback(built_sets)
+					break
+				elseif (count == e) then
+					-- TODO: cur/max% report
+					notice("Progress: Found " .. #built_sets .. " gear sets out of " .. count .. " combinations...")
+					schedule(function() periodic_permute(cur_indices, built_sets, batch_size, count, done_callback) end, PERMUTE_BATCH_DELAY)
 				end
 			else
 				prune_sets(built_sets, capturable_purpose)
@@ -644,38 +569,10 @@ function filter_dimensional(gear_list, purpose, done_callback)
 		end -- for (batch_size)
 	end --function periodic_permute
 
-	periodic_permute(cur_indices, built_sets, PERMUTE_BATCH_SIZE, 0, done_callback)
-
-	--[[
-	while(increment_set_in_place(cur_indices)) do
-		built_sets[#built_sets+1] = {
-			gear_list_ref = gear_list,
-			purpose_checked_against = purpose,
-			apparent_utility_results = purpose.apparent_utility(gear_list, cur_indices, player), -- Main evaluation for the purpose in question.
-			indices = shallow_copy(cur_indices)
-		}
-		if (count > MAX_ITERATIONS_LIMIT) then
-			print("Reached MAX_ITERATIONS_LIMIT of " .. MAX_ITERATIONS_LIMIT)
-			break
-		end
-		if ((count % PRUNE_SETS_INTERVAL) == 0) then
-			prune_sets(built_sets, purpose)
-		end
-		count = count + 1
-		end -- Main iterator for combinations of gear
-	prune_sets(built_sets, purpose)
-
-	print("filter_dimensional: " .. count .. " iterations complete.")
-	print(#built_sets .. " viable sets")
-	]]
-	--print(" [1] = ")
-	--print(built_sets[1])
-	--print("set 1: " .. get_gear_set_string(gear_list, built_sets[1].indices))
-	return built_sets
+	periodic_permute(cur_indices, {}, PERMUTE_BATCH_SIZE, 0, done_callback)
 end
 
 function get_gear_set_string(gear_list, cur_indices)
-	-- TODO: Check off-by-one indices with gear slots? starts at 0 in resources
 	local ret = "[["
 	local item
 	for i = 0, 15 do
@@ -688,78 +585,6 @@ function get_gear_set_string(gear_list, cur_indices)
 	ret = ret .. "]]"
 	return ret
 end
-
--- TODO: Rewrite this such that it holds one piece of gear constant at a time and scans all other sets with that piece of gear.
---		 Track which pieces of gear this operation has been completed for, and upon encountering a piece of gear in further permutations, skip.
---		 Report to player chat regarding the progress of scanning their equipment,
---		 e.g. in chat:
---				Exhaustive analysis of Joyeuse paired with all other equipment complete.
---				x% of equipment analyzed (1/400). Time elapsed: ##:##:## for Joyeuse; ##:##:## total.
---				Starting evaluation of Genbu's Shield in the background...
---[[
-num_permute_calls = 0
-function evaluate_set_permutations(gear_list, utility_function)
-
-	function permute_gear(current_slot_id, growing_set)
-
-		num_permute_calls = num_permute_calls + 1
-		--if num_permute_calls > 10000000 then return {} end
-		--if (current_slot_id == 9) then
-		--	print("still working... slot=" .. current_slot_id .. " & " .. tostring(num_permute_calls) ..  " calls so far")
-		--end
-		if num_permute_calls % 100000 == 0 then
-			filter_dimensional()
-			notice("Progress:" .. tcount(gear_list) .. " viable sets found in " .. num_permute_calls .. " / " .. goal_permute_calls .. " gear set combinations.")
-		end
-
-		local built_sets = {}
-		local my_set = shallow_copy(growing_set)
-		local this_slot_name = res.slots[current_slot_id].en
-		local gear_for_this_slot = gear_list[this_slot_name]
-		-- TODO: Filter by "more useful in at least one way than the minimum"
-		if ((#gear_for_this_slot == 0) and (current_slot_id < #(res.slots))) then
-			append(built_sets, permute_gear(current_slot_id + 1, my_set))
-		end
-		for _, equipment_item in pairs(gear_for_this_slot) do
-			my_set[this_slot_name] = equipment_item
-			if (current_slot_id < #(res.slots)) then
-				--built_sets[#built_sets+1] = permute_gear(current_slot_id + 1, my_set) -- Don't nest built_sets
-				append(built_sets, permute_gear(current_slot_id + 1, my_set))
-			else
-				-- We have a finished set once the recursion reaches 16 depth
-				built_sets[#built_sets+1] = my_set
-			end
-		end
-
-		return built_sets
-	end
-
-	num_permute_calls = 0
-	goal_permute_calls = 1
-	for k,v in pairs(gear_list) do
-		print(k)
-		--print(v)
-		if tcount(v) > 0 then goal_permute_calls = goal_permute_calls * tcount(v) end
-		print("tcount(v) = " .. tcount(v) .. "  --- total " .. goal_permute_calls)
-	end
-	print("Would run " .. goal_permute_calls .. "permutations")
-	--return #(permute_gear(0, {}))
-	return 0
-
-	--categorized_gear_list = categorize_gear_by_slot(gear_list)
-	--local i1 = 0
-	--while(i1 < #(res.slots)) do
-	--	local slot_name_a = res.slots[i1].en
-	--	local i2 = i1 + 1
-	--	while i2 < #(res.slots) do
-	--		local slot_name_2 = res.slots[i2].en
-	--		
-	--		i2 = i2 + 1
-	--	end
-	--	i1 = i1 + 1
-	--end
-end
-]]
 
 --windower.register_event('action message',function (actor_id, target_id, actor_index, target_index, message_id, param_one, param_2, param_3)
 --	--if actor_id ~= windower.ffxi.get_player().id then return end
@@ -810,47 +635,15 @@ end
 
 
 
-
+function peep()
+	local target = windower.ffxi.get_mob_by_target("t")
+	print(target)
+end
 
 --local TEST_COMBINATION_FUNCTION = generate_useful_combinations_v1
 local TEST_COMBINATION_FUNCTION = filter_dimensional
 
-handle_command = function(p1, p2)
-	--local target = windower.ffxi.get_mob_by_target("t")
-	--print(target)
-
-	--local player = get_player()
-	--print(player.main_job .. player.main_job_level)
-
-	--print(get_player())
-	
-
-	--print(nil > 0)
-
-	--print(#require("modifications"))
-
-	--print(item_mods[13259])
-	--if modifiers[mod] ~= nil
-	--print(item_mods[13259][modifiers["AGI"]])
-
-	--print(res.items[16713].skill) -- number/index
-
-	--print("sadfgadfg")
-
-	--local result = evaluate_set_permutations(categorize_gear_by_slot(get_relevant_gear("auto_attack")))
-
-
-	-- test_multi_dimension_iterator() if true then return end
-
-	--print(resources.slots); if true then return end
-
-	--local result = filter_dimensional(categorize_gear_by_slot(get_relevant_gear("auto_attack")), purposes.auto_attack)
-	--filter_dimensional(categorize_gear_by_slot(get_relevant_gear("auto_attack")), purposes.auto_attack,
-
-	--local test = { [0] = true, [1] = true, [2] = true };print(tostring(#test)); if true then return end
-
-	--print("feq test: " .. tostring(feq(1.234, 1.2345))); if true then return end
-
+handle_command = function()
 	local relevant_gear = get_relevant_gear("auto_attack")
 	local categorized_gear = categorize_gear_by_slot(relevant_gear)
 	TEST_COMBINATION_FUNCTION(categorized_gear, purposes.auto_attack,
@@ -862,25 +655,9 @@ handle_command = function(p1, p2)
 			end
 			for k,v in pairs(result) do
 				print(get_gear_set_string(v.gear_list_ref, v.indices) .. " : " .. array_tostring_horizontal(v.apparent_utility_results))
-				--print(categorized_gear.Ammo[v.indices[3]].slot) -- TODO: multiple stacks of ammo will fuck it up
 			end
 		end
 	)
-
-	--print(resources.slots)
-
-	--print(get_modifier_id("atk"))
-
-end
-
-
-xhandle_command = function()
-	--local available = get_equippable_equipment()
-	--local filtered = filter_relevant(available, "auto_attack")
-	print("----- Gear that affects: auto_attack -----")
-	for _, item in pairs(get_relevant_gear("auto_attack")) do
-		print(res.items[item.id].en)
-	end
 end
 
 windower.register_event('addon command', handle_command)
