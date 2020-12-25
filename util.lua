@@ -286,11 +286,25 @@ function multi_dimension_next(cur, min, max) -- returns true if can keep going, 
 	--if (cur[1] <= max[1]) then return true end
 	local c = 1 -- carry
 	while (c <= #max) and (cur[c] >= max[c]) do
-		if c >= #max then return false end -- overflow, we're done
+		--if c >= #max then return false end -- overflow, we're done
+		--print("c > #max ---> " .. c .. " > " .. #max .. "  ?")
+		--if c > #max then
+		--	print("Overflow, done")
+		--	return false -- overflow, we're done
+		--end
+		--print("c(1) = " .. c .. " and max[" .. c .. "] = " .. max[c])
 		if cur[c] > max[c] then
 			cur[c] = min[c]
-			cur[c + 1] = cur[c + 1] + 1
+			--print("c(2) = " .. c)
+			if (c < #max) then
+				cur[c + 1] = cur[c + 1] + 1
+			end
 			c = c + 1
+			--print("c(3) = " .. c)
+			if c > #max then
+				--print("Overflow, done")
+				return false -- overflow, we're done
+			end
 		else
 			break
 		end
@@ -298,6 +312,18 @@ function multi_dimension_next(cur, min, max) -- returns true if can keep going, 
 	return true
 end
 
+function array_tostring_horizontal(a)
+	if a == nil then return "nil" end
+	local ret = "{"
+	for i = 1, #a do
+		if i > 1 then
+			ret = ret .. ", "
+		end
+		ret = ret .. a[i]
+	end
+	ret = ret .. "}"
+	return ret
+end
 
 local OCCASIONALLY_ATTACKS_AVERAGE = {
 	[1] = 1,

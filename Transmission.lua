@@ -5,7 +5,7 @@
 	--
 	-- set_priority_multiplier(number) -- ratio of how much of higher priority stat to give up for a lower priority stat
 
-
+local MAX_ITERATIONS_LIMIT = 10000
 
 _addon.name	   = 'Transmission'
 _addon.author  = 'DFPercush'
@@ -108,20 +108,31 @@ function can_equip(item, player_optional)
 	return false
 end
 
-function filter_relevant(equipment_list, purpose)
+function filter_relevant(equipment_list, purpose_name)
+
+	-- debugging
+	print("Filter dimensional: equipment list has length " .. #equipment_list)
+	for k,v in pairs(equipment_list) do
+		local tmpName = resources.items[v.id].en
+		if string.find(tmpName, "Courage") then
+			print("Original list hit for " .. tmpName)
+		end
+	end
+
 	local ret = {}
 	local has = false
 	local relevant_stats
-	if purposes[purpose] == nil then
-		if modifiers[get_modifier_by_alias(purpose)] ~= nil then
+	local purpose = purposes[purpose_name]
+	if purpose == nil then
+		if modifiers[get_modifier_by_alias(purpose_name)] ~= nil then
 			-- Allow a raw modifier name
-			relevant_stats = { purpose }
+			relevant_stats = { purpose_name }
 		end
 	else
-		relevant_stats = purposes[purpose].relevant_modifiers
+		relevant_stats = purposes[purpose_name].relevant_modifiers
 	end
 	if tcount(relevant_stats) == 0 then
-		warn("Unknown stat: " .. purpose)
+		warn("Unknown stat: " .. purpose_name)
 		return equipment_list
 	end
 
@@ -141,7 +152,11 @@ function filter_relevant(equipment_list, purpose)
 				if (item_mods[item.id][mod_id] > 0) or
 				 ((purpose.want_negative ~= nil) and (purpose.want_negative[mod_text])) then
 					print(tostring(item.storage) .. "/" .. item_name(item) .. " has " .. mod_text)
-					ret[item.id] = item
+
+					-- TODO: There can be more than one of the same item, like rings
+					--ret[item.id] = item
+					local nextIndex = #ret+1
+					ret[nextIndex] = shallow_copy(item)
 					has = true
 					break
 				end
@@ -166,8 +181,12 @@ function get_all_items()
 				if res.items[item.id] ~= nil
 				--and (res.items[item.id].category == "Armor" or res.items[item.id].category == "Weapon")
 				then
-					ret[item.id] = item
-					ret[item.id].storage = bagName
+					--ret[item.id] = item
+					--ret[item.id].storage = bagName
+					
+					local nextIndex = #ret
+					ret[nextIndex] = shallow_copy(item)
+					ret[nextIndex].storage = bagName
 				end
 			end
 		end
@@ -181,7 +200,8 @@ function get_all_equipment()
 		if res.items[item.id] ~= nil
 		 and (res.items[item.id].category == "Armor" or res.items[item.id].category == "Weapon")
 		 then
-			ret[id] = item
+			--ret[id] = item
+			ret[#ret+1] = item
 		 end
 	end
 	return ret
@@ -189,9 +209,11 @@ end
 
 function filter_is_equipment(items)
 	local ret = {}
-	for id, item in items do
+	for _, item in items do
 		if res[item.id] ~= nil and (res.items[item.id].category == "Armor" or res.items[item.id].category == "Weapon") then
-			ret [id] = item
+			--ret [id] = item
+			local nextIndex = #ret
+			ret[nextIndex] = shallow_copy(item)
 		end
 		
 	end
@@ -200,9 +222,11 @@ end
 
 function filter_in_equippable_storage(items)
 	local ret = {}
-	for id,item in pairs(items) do
+	for _,item in pairs(items) do
 		if item.storage == "inventory" or item.storage == "wardrobe" or item.storage == "wardrobe2" or item.storage == "wardrobe3" or item.storage == "wardrobe4" then
-			ret[id] = item
+			--ret[id] = item
+			local nextIndex = #ret
+			ret[nextIndex] = shallow_copy(item)
 		end
 	end
 	return ret
@@ -215,6 +239,7 @@ function get_equippable_equipment()
 	local bags = windower.ffxi.get_items()
 	local player = get_player()
 	local ret = {}
+	local num_added = 0
 	--print(bags)
 
 	--res.items:with("id",
@@ -246,38 +271,41 @@ function get_equippable_equipment()
 							if can_equip(item, player) then
 								--print(res.items[item.id].en)
 								--ret[#ret+1] = item
-								ret[item.id] = item
-								ret[item.id].storage = bagName
-								-- Determine what stats this affects
-							end
-						else
-							print("Item id " .. item.id)
-						end -- items resource
+								
+								--ret[item.id] = item
+								--ret[item.id].storage = bagName
 
-						if item ~= nil and item.id ~= nil and res.item_descriptions[item.id] ~= nil then
-							-- TODO: Parse stats
-							if true then -- TODO: utility fn
-								--notice(table.concat(string.split(res.item_descriptions[item.id].en, '\n'),' \\ '))
+								local nextIndex = #ret+1
+								ret[nextIndex] = shallow_copy(item)
+								ret[nextIndex].storage = bagName
+								num_added = num_added + 1
 							end
 						else
-							--notice("(No description for item id " .. item.id .. ")")
-						end -- item description resource
+							warn("No resource for item id " .. item.id)
+						end -- items resource
 					--end -- item id nil/0
 				end -- item nil/0
 			end -- for items in bag
 		end -- if valid bag
 	end -- for bagId
+
+	print("get_equippable_equipment() added " .. num_added .. " items, returning " .. #ret .. " items")
 	return ret
 end
 
-function get_relevant_gear(purpose)
-	return filter_relevant(get_equippable_equipment(), purpose)
+function get_relevant_gear(purpose_name)
+	return filter_relevant(get_equippable_equipment(), purpose_name)
 end
 
 
 function categorize_gear_by_slot(gear_list)
 	local ret = {}
 	local gear_list_copy = shallow_copy(gear_list)
+	print("categorize_gear_by_slot: gear_list = ")
+	--print(gear_list)
+	for k,item in pairs(gear_list) do
+		print("  [" .. k .. "] = " .. resources.items[item.id].en)	
+	end
 	for _, slot in pairs(res.slots) do
 		ret[slot.en] = {}
 		for equipment_item_index, equipment_item in pairs(gear_list_copy) do
@@ -293,12 +321,18 @@ function categorize_gear_by_slot(gear_list)
 	end
 
 	-- Rings and earrings are only flagged for the left slot, copy to right
-	gear_list["Right Ear"] = gear_list["Left Ear"]
-	gear_list["Right Ring"] = gear_list["Left Ring"]
+	ret["Right Ear"] = ret["Left Ear"]
+	ret["Right Ring"] = ret["Left Ring"]
 	-- Weapons if dual wielding
+	--[[ TODO:	Doesn't currently account for 2h weapons.
+				Checking for restricted slots, as with other pieces of gear (robes etc.) is not the right way to do it since the slot is not restricted to i.e. grips.
+				They also can't be considered in the same way that rings/earrings can.
+				There needs to be special casing that says,
+				"If the player has dual wield, all one-handed weapons should get copied to the sub slot"
+	]]
 	if get_dual_wield_level(get_player()) > 0 then
-		for k, v in gear_list.Main do
-			gear_list["Sub"][k] = v
+		for k, v in pairs(ret.Main) do
+			ret["Sub"][k] = v
 		end
 	end
 
@@ -365,7 +399,10 @@ local function prune_sets(built_sets, purpose)
 			curRangeStart = prevRangeEnd + 1
 			curRangeEnd = curRangeStart
 			if (curRangeStart > #built_sets) then break end
-			while curRangeEnd < #built_sets and feq(built_sets[curRangeEnd].apparent_utility_results[dimension], built_sets[i].apparent_utility_results[dimension]) do
+
+			--print("curRangeEnd")
+
+			while curRangeEnd < #built_sets and feq(built_sets[curRangeEnd].apparent_utility_results[dimension], built_sets[curRangeStart].apparent_utility_results[dimension]) do
 				curRangeEnd = curRangeEnd + 1
 			end
 			
@@ -411,46 +448,135 @@ function filter_dimensional(gear_list, purpose)
 		gear_list_ref = gear_list
 		indices = {#,#,#,#,#,#,#,#,#,#,#,#,#,#,#,#}
 	} ]]
-	local cur = {0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1}
-	local min = shallow_copy(cur)
-	min[1] = 1
-	local max = {}
-	for x=1,16 do
-		max[x] = tcount(gear_list[x])
+	local earrings = merge_left(gear_list["Left Ear"], gear_list["Right Ear"])
+	local rings = merge_left(gear_list["Left Ring"], gear_list["Right Ring"])
+	-- State-capturing custom iterator
+	local increment_set_in_place = function(set)
+		local sloti = 1
+		while (sloti < #set) do
+			if ((sloti < 12) or (sloti > 15)) then
+				-- "Normal" gear slots
+				local init_value
+				if (gear_list[sloti].count > 0) then init_value = 1 else init_value = 0 end
+				if (set[sloti] < gear_list[sloti].count) then
+					set[sloti] = set[sloti] + 1
+					return true
+				else
+					set[sloti] = init_value
+				end
+				sloti = sloti + 1
+			else
+				-- Rings and Earrings
+				local r_or_e = {[12]=earrings,[13]=earrings,[14]=rings,[15]=rings}[sloti]
+				local init_value
+				if (#r_or_e > 0) then init_value = 1 else init_value = 0 end
+				if (set[sloti] == set[sloti+1]) then
+					print("This shouldn't happen! Was the set list initialized with the same values in rings or earring slots?")
+					return false
+				elseif (set[sloti] < #r_or_e) then
+					set[sloti] = set[sloti] + 1
+					return true
+				elseif (set[sloti+1] < #r_or_e) then
+					set[sloti] = init_value
+					set[sloti+1] = set[sloti+1] + 1
+					return true
+				else
+					set[sloti] = init_value
+					if (#r_or_e >= 2) then set[sloti+1] = init_value + 1 else set[sloti+1] = 0 end
+				end
+				sloti = sloti + 2
+			end
+			-- These if statement can halt the advancement of the iteration through rings and earrings.
+			-- Inside these, those slots need a custom method of being iterated.
+			--[[
+				i.e. 4 different earrings
+				(1,1) ✖ Same piece
+				(2,1) ✔
+				(3,1) ✔
+				(4,1) ✔
+
+				(1,2) ✖ Already done
+				(2,2) ✖ Same piece
+				(3,2) ✔
+				(4,2) ✔
+			
+				(1,3) ✖ Already done
+				(2,3) ✖ Already done
+				(3,3) ✖ Same piece
+				(4,3) ✔
+
+				(1,4) ✖ Already done
+				(2,4) ✖ Already done
+				(3,4) ✖ Already done
+				(4,4) ✖ Same piece
+
+				So essentially, these need to be iterated simplex-style?
+				Under no circumstances allow the equipping of the same item twice
+				  (these are references to specific instances of an item!)
+				Ergo, initialize i2 as i1 + 1
+				
+				for i1 = 1, #earrings do
+					for i2 = i1+1, #earrings do
+						(i1, i2)
+				end
+
+				A little extra time can be saved by also eliminating sets that use the identical
+				type of item, under a different instance, but we need to be careful about
+				checking whether that instance of item is different ala augmented, etc.
+				i.e. There's no need to permute a ton of extra sets with a different instance of
+				an Energy Earring unless that other instance has augments or something.
+			]]
+		end
+		return false
+		--[[
+			TODO: Special casing for rings and earrings, i.e:
+
+			TODO: Mind the exclusion nature of weapons, shields, grips etc.
+			i.e. 2h weapons only allow grips and such in the sub slot, not other 1h weapons
+		]]
 	end
 
-	print("max = " .. tostring(max))
+	--local cur_indices = {0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1}
+	local cur_indices = {-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}
+	local iteration_min_indices = shallow_copy(cur_indices)
+	iteration_min_indices[1] = iteration_min_indices[1] + 1
+	local iteration_max_indices = {}
+	for x=1,16 do
+		iteration_max_indices[x] = tcount(gear_list[x])
+	end
+
+	print("max = " .. tostring(iteration_max_indices))
 	
 	local count = 0
 	local built_sets = {}
 	local player = get_player()
-	local result
+	local iWeaponMain, iWeaponSub, iRingL, iRingR, iEarL, iEarR
+	print("cur at start = " .. array_tostring_horizontal(cur_indices))
 
-
-	--local built_sets_last_index
-	--local min_bonuses = {}
-	--repeat -- main combinator loop
-	print("cur at start = " .. tostring(cur))
-	while multi_dimension_next(cur, min, max) do
-		print("sanity check ".. count)
-
-		result = {}
+	-- Main iterator through all the combinations
+	--while(increment_set_in_place(cur_indices)) do
+	while multi_dimension_next(cur_indices, iteration_min_indices, iteration_max_indices) do
+		--print("count=" .. count .. ", cur=" .. array_tostring_horizontal(cur_indices))
+		--print("cur_indices = " .. array_tostring_horizontal(cur_indices))
 
 		-- Skip duplicate items in rings, earrings and weapons.
 		-- Since this tests for equal table references, two distinct items of the
 		-- same id will still be able to be equipped.
 
-		print("cur = " .. tostring(cur))
-		print("cur[flags.slot_index[Left Ear]] = " .. cur[flags.slot_index["Left Ear"]])
-		print("cur[flags.slot_index[Right Ear]] = ".. cur[flags.slot_index["Right Ear"]]
-	)
-		if (cur[flags.slot_index["Left Ear"]] ~= cur[flags.slot_index["Right Ear"]])
-		 and (cur[flags.slot_index["Left Ring"]] ~= cur[flags.slot_index["Right Ring"]])
-		 and (cur[flags.slot_index["Main"]] ~= cur[flags.slot_index["Sub"]])
+		iEarL = cur_indices[flags.slot_index["Left Ear"]]
+		iEarR = cur_indices[flags.slot_index["Right Ear"]]
+		iRingL = cur_indices[flags.slot_index["Left Ring"]]
+		iRingR = cur_indices[flags.slot_index["Right Ring"]]
+		iWeaponMain = cur_indices[flags.slot_index["Main"]]
+		iWeaponSub = cur_indices[flags.slot_index["Sub"]]
+
+		if ((iEarL ~= iEarR) or (iEarL == 0 and iEarR == 0))
+		 and ((iRingL ~= iRingR) or (iRingL == 0 and iRingR == 0))
+		 and ((iWeaponMain ~= iWeaponSub) or (iWeaponMain == 0 and iWeaponSub == 0))
 		 then
-			print("dbg 2")
+			--print("dbg 2")
 			-- TODO: Are there any restricted slots? (tunics remove headgear, etc)
-			for k,v in pairs(cur) do
+			for k,v in pairs(cur_indices) do
 				--if RESTRICTED_SLOTS[gear_set[k][v]]
 			end
 
@@ -459,8 +585,8 @@ function filter_dimensional(gear_list, purpose)
 			built_sets[#built_sets+1] = {
 				gear_list_ref = gear_list,
 				purpose_checked_against = purpose,
-				apparent_utility_results = purpose.apparent_utility(gear_list, cur, player), -- Main evaluation for the purpose in question.
-				indices = shallow_copy(cur)
+				apparent_utility_results = purpose.apparent_utility(gear_list, cur_indices, player), -- Main evaluation for the purpose in question.
+				indices = shallow_copy(cur_indices)
 			}
 
 			-- To extract the gear set and equip it, you will need gear_set as well as viable[x].indeces
@@ -472,11 +598,15 @@ function filter_dimensional(gear_list, purpose)
 
 
 		-- TODO: Remove limiter
-		if count > 1e6 then return 0 end
+		if count > MAX_ITERATIONS_LIMIT then
+			print("Reached MAX_ITERATIONS_LIMIT of " .. MAX_ITERATIONS_LIMIT)
+			break
+		end
 
 
 		if (count % 10000 == 0) then
-			print(cur[1] .. ", " .. cur[2] .. ", " .. cur[3] .. ", " .. cur[4] .. ", " .. cur[5] .. ", " .. cur[6] .. ", " .. cur[7] .. ", " .. cur[8] .. ", " .. cur[9] .. ", " .. cur[10] .. ", " .. cur[11] .. ", " .. cur[12] .. ", " .. cur[13] .. ", " .. cur[14] .. ", " .. cur[15] .. ", " .. cur[16])
+			--print(cur_indices[1] .. ", " .. cur_indices[2] .. ", " .. cur_indices[3] .. ", " .. cur_indices[4] .. ", " .. cur_indices[5] .. ", " .. cur_indices[6] .. ", " .. cur_indices[7] .. ", " .. cur_indices[8] .. ", " .. cur_indices[9] .. ", " .. cur_indices[10] .. ", " .. cur_indices[11] .. ", " .. cur_indices[12] .. ", " .. cur_indices[13] .. ", " .. cur_indices[14] .. ", " .. cur_indices[15] .. ", " .. cur_indices[16])
+			print("Pruning at cur = " .. array_tostring_horizontal(cur_indices))
 			
 			prune_sets(built_sets, purpose)
 		end -- if count % something
@@ -488,10 +618,23 @@ function filter_dimensional(gear_list, purpose)
 
 	print("filter_dimensional: " .. count .. " iterations complete.")
 	print(#built_sets .. " viable sets")
-	print(" [1] = ")
-	print(built_sets[1])
+	--print(" [1] = ")
+	--print(built_sets[1])
+	--print("set 1: " .. get_gear_set_string(gear_list, built_sets[1].indices))
+	return built_sets
 end
 
+function get_gear_set_string(gear_list, cur_indices)
+	ret = ""
+	for i = 1, 16 do
+		item = gear_list[i][cur_indices[i]]
+		if item == nil then ret = ret .. ""
+		else ret = ret .. resources.items[item.id].en
+		end
+		if i > 1 then ret = ret .. ", " end
+	end
+	return ret
+end
 
 -- TODO: Rewrite this such that it holds one piece of gear constant at a time and scans all other sets with that piece of gear.
 --		 Track which pieces of gear this operation has been completed for, and upon encountering a piece of gear in further permutations, skip.
@@ -569,6 +712,21 @@ end
 --	log("Message " .. message_id)
 --end)
 
+function test_multi_dimension_iterator()
+	local cur = {-1,0,0}
+	local min = {0,0,0}
+	local max = {2,2,2}
+	local count = 0
+	while multi_dimension_next(cur,min,max) do
+		print(array_tostring_horizontal(cur))
+		count = count + 1
+		if count > 30 then
+			print("Warning: Fail safe stopped the loop")
+			break
+		end
+	end
+	print("Last: " .. array_tostring_horizontal(cur))
+end
 
 
 
@@ -627,12 +785,18 @@ handle_command = function(p1, p2)
 
 	--local result = evaluate_set_permutations(categorize_gear_by_slot(get_relevant_gear("auto_attack")))
 
+
+	-- test_multi_dimension_iterator() if true then return end
+
 	-- [[
 	local result = filter_dimensional(categorize_gear_by_slot(get_relevant_gear("auto_attack")), purposes.auto_attack)
 	print(" ------- DING, FRIES ARE DONE -------")
 	print("result is a " .. type(result)) -- .. " : " .. tostring(result))
 	if type(result) == "table" then
 		print(tcount(result) .. " entries")
+	end
+	for k,v in pairs(result) do
+		print(get_gear_set_string(v.gear_list_ref, v.indices))
 	end
 	result = nil
 	--]]

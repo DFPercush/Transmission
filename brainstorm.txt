@@ -10,6 +10,8 @@
 
 . Rings and Earrings are slot-flagged for only the left
 	. minimum item id goes in left slot to avoid duplicates of just left-right swapped sets
+	. if you only have one ring, since cur starts at {1,1,1...} it thinks they are equal.
+		need to consider empty slot
 . also weapons if dual wielding
 
 / handle restricted slots

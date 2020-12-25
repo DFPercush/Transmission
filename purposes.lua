@@ -1,11 +1,13 @@
 
 local r = {}
 
+local EMPTY_TABLE = {}
+
 r.auto_attack = 
 	{
 		num_of_dimensions = 3, -- Could possibly make this a table that describes the dimensions, and if you want the number, just get the length of the table
 		apparent_utility = function(gear_list, cur_indeces, player_optional)
-			EMPTY_TABLE = {}
+			
 			function get_slot(slot_name)
 				local item = gear_list[slot_name][cur_indeces[TM_FLAGS.slot_index[slot_name]+1]]
 				if (item == nil) then return EMPTY_TABLE end
@@ -66,12 +68,13 @@ r.auto_attack =
 				--EXTRA_DUAL_WIELD_ATTACK
 				--EXTRA_KICK_ATTACK
 			-- TODO: There a lot more to account for in auto_attack, but we've got something for testing the algorithm
-			return_vector[1] = 
+			local ret = {}
+			ret[1] = 
 				(estimate_per_swing * estimate_swings / weapon_delay) + 
 				((natural_h2h_damage + forcenumber(total_mods.KICK_DMG)) * forcenumber(total_mods.KICK_ATTACK_RATE) / 100 / weapon_delay);
-			return_vector[2] = forcenumber(total_mods.ACC)
-			return_vector[3] = forcenumber(total_mods.HASTE_GEAR)
-			return return_vector
+			ret[2] = forcenumber(total_mods.ACC)
+			ret[3] = forcenumber(total_mods.HASTE_GEAR)
+			return ret
 		end,
 		
 		relevant_modifiers = 
