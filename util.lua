@@ -329,11 +329,12 @@ end
 function array_tostring_horizontal(a)
 	if a == nil then return "nil" end
 	local ret = "{"
+	if (a[0] ~= nil) then ret = ret .. "[0]=" .. tostring(a[0]) ..", " end
 	for i = 1, #a do
 		if i > 1 then
 			ret = ret .. ", "
 		end
-		ret = ret .. a[i]
+		ret = ret .. tostring(a[i])
 	end
 	ret = ret .. "}"
 	return ret

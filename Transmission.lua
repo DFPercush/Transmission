@@ -344,12 +344,17 @@ function categorize_gear_by_slot(gear_list)
 		end
 	end
 
-	ret.count = {}
-	for _,slot in pairs(resources.slots) do
-		ret[slot.id] = ret[slot.en]
-		ret.count[slot.id] = tcount(ret[slot.en])
-	end
+	populate_gear_list_numerics(ret)
 	return ret
+end
+
+function populate_gear_list_numerics(gear_list)
+	gear_list.count = {}
+	for _,slot in pairs(resources.slots) do
+		gear_list[slot.id] = gear_list[slot.en]
+		gear_list.count[slot.id] = tcount(gear_list[slot.en])
+	end
+	return gear_list
 end
 
 function filter_per_slot(categorized_gear_list, purpose)
@@ -357,13 +362,29 @@ function filter_per_slot(categorized_gear_list, purpose)
 	--  to remove complete garbage from the gear set permutation size.
 	-- Build a naked set, plus the item in question, and filter them the same
 	-- way as permutations use. Reset results between slots.
+
+	-- TODO: Need the 2 best rings, earrings, weapons
+	--  Right now it's including all rings etc. which does significantly impact
+	--  permutation time. I think if we just eliminate the good ones from the first
+	-- set of multi-slot items, then run it again and combine the good ones from both runs,
+	-- that will still eliminate a lot while ensuring we have 2 good rings
 	local static_zero_indices = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,[0]=0}
 	local test_indices
 	local test_results = {}
 	local player = get_player()
-	for iSlot = 0, 15 do
+	local ret = {}
+	--print("BEFORE: " .. tostring(categorized_gear_list["Main"]))
+	ret.Main = categorized_gear_list.Main
+	ret.Sub = categorized_gear_list.Sub
+	ret["Left Ear"] = categorized_gear_list["Left Ear"]
+	ret["Right Ear"] = categorized_gear_list["Right Ear"]
+	ret["Left Ring"] = categorized_gear_list["Left Ring"]
+	ret["Right Ring"] = categorized_gear_list["Right Ring"]
+	for _,iSlot in pairs({2,3,4,5,6,7,8,9,10,15}) do -- = 0, 15 do
+		local slot_name = resources.slots[iSlot].en
 		test_results = {}
-		for iItem = 1, #(categorized_gear_list[resources.slots[iSlot].en]) do
+		for iItem = 1, #(categorized_gear_list[slot_name]) do
+			--print("Slot " .. slot_name .. " item " .. iItem)
 			--local item = categorized_gear_list[iSlot][iItem]
 			test_indices = shallow_copy(static_zero_indices)
 			test_indices[iSlot] = iItem
@@ -375,12 +396,19 @@ function filter_per_slot(categorized_gear_list, purpose)
 				apparent_utility_results = purpose.apparent_utility(categorized_gear_list, test_indices, player),
 			})
 		end
+		--print(slot_name .. ": " .. #test_results .. " / " .. #(categorized_gear_list[slot_name]))
 		local filtered_slot = {}
+		
 		for _,combo in pairs(test_results) do
-			filtered_slot[#filtered_slot+1] = combo[iSlot]
+			--print(zero_based_array_tostring_horizontal(combo.indices))
+			--print("categorized_gear_list[\"" .. resources.slots[iSlot].en .. "\"[" .. combo[iSlot] .. "] = " .. tostring(categorized_gear_list[resources.slots[iSlot].en][combo[iSlot]]))
+			filtered_slot[#filtered_slot+1] = categorized_gear_list[iSlot][combo.indices[iSlot]]
 		end
-		categorized_gear_list[resources.slots[iSlot].en] = filtered_slot
+		ret[resources.slots[iSlot].en] = filtered_slot
 	end
+	--print("AFTER: " .. tostring(ret["Main"]))
+	populate_gear_list_numerics(ret)
+	return ret
 end
 
 function estimate_permutation_size(categorized_gear_set)
@@ -517,7 +545,9 @@ local function initializer_factory(gear_list)
 	r.create_initial_set = function()
 		local set = {}
 		for _, sloti in pairs({0,1,2,3,4,5,6,7,8,9,10,15}) do
-			if (#(gear_list[sloti]) >= 1) then
+			local slot_name = resources.slots[sloti].en
+			--if (#(gear_list[sloti]) >= 1) then
+			if (#(gear_list[slot_name]) >= 1) then
 				set[sloti] = 1
 			else
 				set[sloti] = 0
@@ -525,12 +555,6 @@ local function initializer_factory(gear_list)
 		end
 		r.init_rings(set)
 		r.init_earrings(set)
-
-		-- Allow the first "next" to happen and still be on the first element
-		-- set[0] = set[0] - 1
-		-- or... ?
-		-- set[0] = 0
-		
 		return set
 	end
 	return r
@@ -790,44 +814,13 @@ function peep()
 end
 
 --local TEST_COMBINATION_FUNCTION = generate_useful_combinations_v1
-local COMBINATION_FUNCTION = filter_dimensional
-
-xhandle_command = function ()
-	--  cat plot_points.csv | sed s/\\\(.*\\\)/\\\{apparent_utility_results=\\\{\\\1\\\}\\\},/
-	local test_data = {
-		{apparent_utility_results={0.66719453958333,21,0.0020833333333333}},
-		{apparent_utility_results={0.64836233585859,17,0.0025252525252525}},
-		{apparent_utility_results={1.0469319458333,21,0.0020833333333333}},
-		{apparent_utility_results={1.1086501010101,17,0.0025252525252525}},
-		{apparent_utility_results={1.1898438729167,21,0.0020833333333333}},
-		{apparent_utility_results={1.2818766792929,17,0.0025252525252525}},
-		{apparent_utility_results={0.45486824791667,28,0.0020833333333333}},
-		{apparent_utility_results={0.39099713383838,24,0.0025252525252525}},
-		{apparent_utility_results={0.5147304040404,29,0.0025252525252525}},
-		{apparent_utility_results={0.55694819583333,33,0.0020833333333333}},
-		{apparent_utility_results={0.17322657828283,29,0.0025252525252525}},
-		{apparent_utility_results={0.27520753958333,33,0.0020833333333333}},
-		{apparent_utility_results={0.94532218434343,24,0.0025252525252525}},
-		{apparent_utility_results={0.91218641458333,28,0.0020833333333333}},
-		{apparent_utility_results={0.79189292929293,24,0.0025252525252525}},
-		{apparent_utility_results={0.78560727916667,28,0.0020833333333333}},
-	}
-
-
-
-	local test_results = {}
-	for i = 1, #test_data do
-		add_and_filter_set_combination(test_results, purposes.auto_attack, test_data[i])
-	end
-	print(test_results)
-	
-end
+--local COMBINATION_FUNCTION = filter_dimensional
 
 handle_command = function()
 	local relevant_gear = get_relevant_gear("auto_attack") -- TODO: pass a table instead of a name
 	local categorized_gear = categorize_gear_by_slot(relevant_gear)
-	local prefiltered_gear = categorized_gear
-	--local prefiltered_gear = filter_per_slot(categorized_gear, purposes.auto_attack)
+	--local prefiltered_gear = categorized_gear
+	local prefiltered_gear = filter_per_slot(categorized_gear, purposes.auto_attack)
 	filter_dimensional(prefiltered_gear, purposes.auto_attack,
 		function(result)
 			print(" ------- DING, FRIES ARE DONE -------")
