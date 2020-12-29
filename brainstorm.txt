@@ -38,6 +38,10 @@ Skree
 
 ● HOW DO I ACCESSED AUGMENT
 
+● Filter gear for any piece of equipment that has no extra bonuses and worse stats than other gear in its slot
+
+● Special case: Detect if gear has "set bonus" on it and scan for other pieces of the set. If the set can be assembled, forcibly include the set pieces.
+
 ● Currently, we're feeding a gear_list that has been filtered down to currently-equippable items into the permutator.
 	Do we want to instead permute ALL gear with a subtractive blend of jobs as we go, and build a larger but more general-purpose cache on disk?
 

@@ -14,10 +14,13 @@ _addon.commands = {'tm', 'transmission'}
 
 
 -- Config
-MAX_ITERATIONS_LIMIT = 10000  -- hard fail safe on max run time
-PRUNE_SETS_INTERVAL_COUNT = 100  -- number of combinations to accumulate before pruning
+--MAX_ITERATIONS_LIMIT = 10000000  -- hard fail safe on max run time
+--PRUNE_SETS_INTERVAL_COUNT = 1000  -- number of combinations to accumulate before pruning
+local PROGRESS_REPORT_INTERVAL_MINUTES = 10
+local LONG_MODE_START_TIME_SECONDS = 22
+
 local PERMUTE_BATCH_SIZE = 1000  -- Set combinations
-local PERMUTE_BATCH_DELAY = 1 -- Seconds
+local PERMUTE_BATCH_DELAY = 0 -- Seconds
 -- There is also TEST_COMBINATION_FUNCTION - use search, must be defined below
 
 -- Windower components
@@ -154,7 +157,8 @@ function filter_relevant(equipment_list, purpose_name)
 			 and item_mods[item.id][mod_id] ~= 0
 			 then
 				good_item = true
-				-- is it actually a bonus, or a detriment
+				-- is it actually a bonus, or a detriment?
+				-- TODO: Test - It might have -DEX and +STR, think it'll still pass
 				if (item_mods[item.id][mod_id] > 0) or
 				 ((purpose.want_negative ~= nil) and (purpose.want_negative[mod_text])) then
 					-- Prevent duplicates like multiple stacks of ammo, randomly dropped armor etc
@@ -172,6 +176,10 @@ function filter_relevant(equipment_list, purpose_name)
 			end
 		end
 	end
+
+	-- We now have a list of all equipment that has anything to do with purpose.
+
+
 	return ret
 end
 
@@ -312,7 +320,6 @@ function categorize_gear_by_slot(gear_list)
 			if ((equippable_in_this_slot ~= nil) and (equippable_in_this_slot ~= false)) then
 				local len = #(ret[slot.en])
 				ret[slot.en][len+1] = equipment_item
-				gear_list_copy[equipment_item_index] = nil
 			end
 		end
 	end
@@ -327,9 +334,13 @@ function categorize_gear_by_slot(gear_list)
 				There needs to be special casing that says,
 				"If the player has dual wield, all one-handed weapons should get copied to the sub slot"
 	]]
-	if get_dual_wield_level(get_player()) > 0 then
-		for k, v in pairs(ret.Main) do
-			ret["Sub"][k] = v
+	if (get_dual_wield_level(get_player()) == 0) then
+		for k, item in pairs(ret.Sub) do
+			-- TODO: if equipppable in main, but not dual wield, remove from sub
+			--ret.Sub[k] = v
+			if res.items[item.id].slots[0] then
+				ret.Sub[k] = nil
+			end
 		end
 	end
 
@@ -341,6 +352,60 @@ function categorize_gear_by_slot(gear_list)
 	return ret
 end
 
+function filter_per_slot(categorized_gear_list, purpose)
+	-- Do a little per-slot filtering of individual items,
+	--  to remove complete garbage from the gear set permutation size.
+	-- Build a naked set, plus the item in question, and filter them the same
+	-- way as permutations use. Reset results between slots.
+	local static_zero_indices = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,[0]=0}
+	local test_indices
+	local test_results = {}
+	local player = get_player()
+	for iSlot = 0, 15 do
+		test_results = {}
+		for iItem = 1, #(categorized_gear_list[resources.slots[iSlot].en]) do
+			--local item = categorized_gear_list[iSlot][iItem]
+			test_indices = shallow_copy(static_zero_indices)
+			test_indices[iSlot] = iItem
+			add_and_filter_set_combination(test_results, purpose, 
+			{
+				gear_list_ref = categorized_gear_list,
+				purpose_checked_against = purpose,
+				indices = test_indices,
+				apparent_utility_results = purpose.apparent_utility(categorized_gear_list, test_indices, player),
+			})
+		end
+		local filtered_slot = {}
+		for _,combo in pairs(test_results) do
+			filtered_slot[#filtered_slot+1] = combo[iSlot]
+		end
+		categorized_gear_list[resources.slots[iSlot].en] = filtered_slot
+	end
+end
+
+function estimate_permutation_size(categorized_gear_set)
+	local ret = 1
+	for iSlot = 0, 10 do
+		local numThisSlot = categorized_gear_set.count[iSlot]
+		if numThisSlot > 0 then
+			ret = ret * numThisSlot
+		end
+	end
+
+	-- Back
+	if categorized_gear_set.count[15] > 0 then ret = ret * categorized_gear_set.count[15] end
+
+	-- Earrings
+	if categorized_gear_set.count[11] > 0 then
+		ret = ret * (categorized_gear_set.count[11] ^ 2) / 2
+	end
+
+	-- Rings
+	if categorized_gear_set.count[13] > 0 then
+		ret = ret * (categorized_gear_set.count[13] ^ 2) / 2
+	end
+	return ret
+end
 
 function prune_sets(built_sets, purpose)
 	local prevRangeStart = 1
@@ -392,10 +457,10 @@ function prune_sets(built_sets, purpose)
 							-- Is it better than something from the previous range
 							-- in at least one way?
 							if (built_sets[iViableCurrent] == nil) then
-								print("(debug) viable[" .. iViableCurrent .. "] == nil")
+								warning("(debug) viable[" .. iViableCurrent .. "] == nil")
 							end
 							if (built_sets[iViablePrevious] == nil) then
-								print("(debug) viable[" .. iViablePrevious .. "] == nil")
+								warning("(debug) viable[" .. iViablePrevious .. "] == nil")
 							end
 							if built_sets[iViableCurrent].apparent_utility_results[dim_cmp] > built_sets[iViablePrevious].apparent_utility_results[dim_cmp] then
 								keep = true
@@ -412,7 +477,7 @@ function prune_sets(built_sets, purpose)
 		end -- while curRangeEnd <= #built_sets
 
 		-- Clean up .need_to_delete
-		filter_array_in_place(built_sets, function(t) return t.need_to_delete end)
+		filter_array_in_place(built_sets, function(t) return (not t.need_to_delete) end)
 	end -- for dimension = 1, purpose.num_of_dimensions
 
 	for _,v in pairs(built_sets) do
@@ -429,11 +494,11 @@ local function initializer_factory(gear_list)
 		local r_or_e
 		local left_index
 		if (bool_rings) then
-			r_or_e = gear_list[11]
-			left_index = 11
-		else
 			r_or_e = gear_list[13]
 			left_index = 13
+		else
+			r_or_e = gear_list[11]
+			left_index = 11
 		end
 		local init_value
 		if (#r_or_e > 0) then init_value = 1 else init_value = 0 end
@@ -460,16 +525,24 @@ local function initializer_factory(gear_list)
 		end
 		r.init_rings(set)
 		r.init_earrings(set)
+
+		-- Allow the first "next" to happen and still be on the first element
+		-- set[0] = set[0] - 1
+		-- or... ?
+		-- set[0] = 0
+		
 		return set
 	end
 	return r
 end
 
-local function iterator_factory(gear_list)
+local function permutator_factory(gear_list)
 	local initializer = initializer_factory(gear_list)
+	--local sloti = 0
 	return function(gear_indices) -- State-capturing custom iterator that uses the set and gear list to solve permuting sets
 		local sloti = 0
-		while (sloti <= #gear_indices) do
+		--gear_indices[0] = gear_indices[0] + 1
+		while (sloti < 16) do
 			if ((sloti < 11) or (sloti > 14)) then 
 				-- "Normal" gear slots
 				local init_value
@@ -486,7 +559,7 @@ local function iterator_factory(gear_list)
 				local r_or_e = gear_list[sloti]
 				local init_value
 				if (#r_or_e > 0) then init_value = 1 else init_value = 0 end
-				if (gear_indices[sloti] == gear_indices[sloti+1]) then
+				if ((gear_indices[sloti] == gear_indices[sloti+1]) and (gear_indices[sloti] ~= 0)) then
 					print("This shouldn't happen! Was the set list initialized with the same values in rings or earring slots?")
 					return false
 				elseif (gear_indices[sloti] < #r_or_e) then
@@ -504,7 +577,7 @@ local function iterator_factory(gear_list)
 					end
 				end
 				sloti = sloti + 2
-			end
+			end -- if ring/earring
 			--[[
 				A little extra time can be saved by also eliminating sets that use the identical
 				type of item, under a different instance, but we need to be careful about
@@ -512,7 +585,7 @@ local function iterator_factory(gear_list)
 				i.e. There's no need to permute a ton of extra sets with a different instance of
 				an Energy Earring unless that other instance has augments or something.
 			]]
-		end
+		end -- while (sloti < 16)
 		return false
 		--[[
 			TODO: Mind the exclusion nature of weapons, shields, grips etc.
@@ -528,47 +601,65 @@ function filter_dimensional(gear_list, purpose, done_callback)
 	-- e.g. gear_list["Head"][1].id  <-- is item id of an equippable head piece
 
 	local cur_indices = initializer_factory(gear_list).create_initial_set()
-	local iterator = iterator_factory(gear_list)
+	local permute = permutator_factory(gear_list)
 
 	local count = 0
 	local player = get_player()
+	local last_progress_report_time = os.time()
+	local start_time = os.time()
+	local is_long_mode_reported = false
 	capturable_purpose = purpose
+	total_permutations_estimate = estimate_permutation_size(gear_list)
 	
 	periodic_permute = function(cur_indices, built_sets, batch_size, count, done_callback)
 		local s = count
 		local e = count + batch_size
-		for i = s, e-1 do 
-			if(iterator(cur_indices)) then
-				built_sets[#built_sets+1] = {
-					gear_list_ref = gear_list,
-					purpose_checked_against = purpose,
-					apparent_utility_results = purpose.apparent_utility(gear_list, cur_indices, player), -- Main evaluation for the purpose in question.
-					indices = shallow_copy(cur_indices)
-				}
-				count = count + 1
-				if ((count % PRUNE_SETS_INTERVAL_COUNT) == 0) then
-					prune_sets(built_sets, purpose)
-				end
-				if (count > MAX_ITERATIONS_LIMIT) then
-					-- TODO: If using promises, might want to reject with "too complex" error or something similar
-					print("Hard cap reached: " .. MAX_ITERATIONS_LIMIT .. " iterations.")
-					done_callback(built_sets)
-					break
-				elseif (count == e) then
-					-- TODO: cur/max% report
-					notice("Progress: Found " .. #built_sets .. " gear sets out of " .. count .. " combinations...")
-					schedule(function() periodic_permute(cur_indices, built_sets, batch_size, count, done_callback) end, PERMUTE_BATCH_DELAY)
-				end
-			else
-				prune_sets(built_sets, capturable_purpose)
-				notice(count .. " iterations complete.")
-				print(#built_sets .. " viable sets")
+		for i = s, e-1 do
+			local next_element = {
+			--built_sets[#built_sets+1] = {
+				gear_list_ref = gear_list,
+				purpose_checked_against = purpose,
+				apparent_utility_results = purpose.apparent_utility(gear_list, cur_indices, player), -- Main evaluation for the purpose in question.
+				indices = shallow_copy(cur_indices)
+			}
+			add_and_filter_set_combination(built_sets, purpose, next_element)
+			count = count + 1
+			
+			local hard_cap_hit = false -- (count > MAX_ITERATIONS_LIMIT)
+			local can_continue = permute(cur_indices) -- ADVANCES STATE IN-PLACE
+			local STAHP = (hard_cap_hit or (not can_continue))
+			--if (((count % PRUNE_SETS_INTERVAL_COUNT) == 0) or (STAHP)) then
+			--	prune_sets(built_sets, purpose)
+			--end
+			if STAHP then
+				-- TODO: If using promises, might want to reject with "too complex" error or something similar
+				
+				if (hard_cap_hit) then warning("Hard cap reached: " .. MAX_ITERATIONS_LIMIT .. " iterations.") end
+				notice("Finished in " .. count .. " iterations.")
 				done_callback(built_sets)
 				break
-			end -- if increment_in_place...
+			end
+			if (count == e) then
+				local now = os.time()
+				local tplus = os.difftime(now, start_time)
+				if (tplus > LONG_MODE_START_TIME_SECONDS and not is_long_mode_reported) then
+					notice("Entering long haul mode to avoid spam. Still working. Will report in " .. PROGRESS_REPORT_INTERVAL_MINUTES .. " minutes.")
+					is_long_mode_reported = true
+				end
+				-- TODO: cur/max% report
+				local delta_t = os.difftime(now, last_progress_report_time)
+				if (delta_t > PROGRESS_REPORT_INTERVAL_MINUTES * 60)
+					or (tplus < LONG_MODE_START_TIME_SECONDS and delta_t > 5)
+				then
+					notice("Progress: Found " .. #built_sets .. " gear sets from " .. count .. " / " .. total_permutations_estimate .. " combinations...")
+					last_progress_report_time = now
+				end
+				schedule(function() periodic_permute(cur_indices, built_sets, batch_size, count, done_callback) end, PERMUTE_BATCH_DELAY)
+			end
 		end -- for (batch_size)
 	end --function periodic_permute
 
+	notice("Estimated permutations for current inventory: " .. total_permutations_estimate)
 	periodic_permute(cur_indices, {}, PERMUTE_BATCH_SIZE, 0, done_callback)
 end
 
@@ -607,6 +698,64 @@ function test_multi_dimension_iterator()
 	print("Last: " .. array_tostring_horizontal(cur))
 end
 
+function add_and_filter_set_combination(built_sets, purpose, new_element)
+	local was_inserted = false
+	local better_than_one_element_in_one_way = false
+	local worse_than_one_element_in_all_ways = false
+	g_count_add_and_filter_set_combination = (g_count_add_and_filter_set_combination or 0) + 1
+	local iSet
+	for iSet = 1, #built_sets do
+		worse_than_one_element_in_all_ways = true
+		for iDim = 1, purpose.num_of_dimensions do
+			if new_element.apparent_utility_results[iDim] > built_sets[iSet].apparent_utility_results[iDim] then
+				better_than_one_element_in_one_way = true
+				worse_than_one_element_in_all_ways = false
+				--break
+			end
+		end
+		if worse_than_one_element_in_all_ways then break end
+	end
+	if worse_than_one_element_in_all_ways then
+		--print("new thing sucks")
+		return
+	elseif better_than_one_element_in_one_way then
+		--print("good for something")
+		built_sets[#built_sets+1] = new_element
+		was_inserted = true
+	elseif #built_sets == 0 then
+		--print("First item")
+		built_sets[#built_sets+1] = new_element
+		was_inserted = true
+	end
+	local count_prev_good = 0
+	local count_prev_bad = 0
+	if was_inserted then
+		local keep = false
+		for iSet = 1, #built_sets-1 do
+			keep = false
+			for iDim = 1, purpose.num_of_dimensions do
+				if built_sets[iSet].apparent_utility_results[iDim] > new_element.apparent_utility_results[iDim] then
+					keep = true
+				end
+			end
+			if not keep then
+				built_sets[iSet].need_to_delete = true
+				count_prev_bad = count_prev_bad + 1
+			else
+				count_prev_good = count_prev_good + 1
+			end
+		end
+		--print("Filtered " .. count_prev_bad .. ", kept " .. count_prev_good .. " combinations")
+	else
+		--print("Not inserted. @ " .. #built_sets .. " elements")
+	end
+	filter_array_in_place(built_sets, function(x) return (not x.need_to_delete) end)
+	for _,v in pairs(built_sets) do
+		if v.need_to_delete then
+			warning("Detected a set flagged for deletion but still present.")
+		end
+	end
+end
 
 
 
@@ -641,21 +790,75 @@ function peep()
 end
 
 --local TEST_COMBINATION_FUNCTION = generate_useful_combinations_v1
-local TEST_COMBINATION_FUNCTION = filter_dimensional
+local COMBINATION_FUNCTION = filter_dimensional
+
+xhandle_command = function ()
+	--  cat plot_points.csv | sed s/\\\(.*\\\)/\\\{apparent_utility_results=\\\{\\\1\\\}\\\},/
+	local test_data = {
+		{apparent_utility_results={0.66719453958333,21,0.0020833333333333}},
+		{apparent_utility_results={0.64836233585859,17,0.0025252525252525}},
+		{apparent_utility_results={1.0469319458333,21,0.0020833333333333}},
+		{apparent_utility_results={1.1086501010101,17,0.0025252525252525}},
+		{apparent_utility_results={1.1898438729167,21,0.0020833333333333}},
+		{apparent_utility_results={1.2818766792929,17,0.0025252525252525}},
+		{apparent_utility_results={0.45486824791667,28,0.0020833333333333}},
+		{apparent_utility_results={0.39099713383838,24,0.0025252525252525}},
+		{apparent_utility_results={0.5147304040404,29,0.0025252525252525}},
+		{apparent_utility_results={0.55694819583333,33,0.0020833333333333}},
+		{apparent_utility_results={0.17322657828283,29,0.0025252525252525}},
+		{apparent_utility_results={0.27520753958333,33,0.0020833333333333}},
+		{apparent_utility_results={0.94532218434343,24,0.0025252525252525}},
+		{apparent_utility_results={0.91218641458333,28,0.0020833333333333}},
+		{apparent_utility_results={0.79189292929293,24,0.0025252525252525}},
+		{apparent_utility_results={0.78560727916667,28,0.0020833333333333}},
+	}
+
+
+
+	local test_results = {}
+	for i = 1, #test_data do
+		add_and_filter_set_combination(test_results, purposes.auto_attack, test_data[i])
+	end
+	print(test_results)
+	
+end
 
 handle_command = function()
-	local relevant_gear = get_relevant_gear("auto_attack")
+	local relevant_gear = get_relevant_gear("auto_attack") -- TODO: pass a table instead of a name
 	local categorized_gear = categorize_gear_by_slot(relevant_gear)
-	TEST_COMBINATION_FUNCTION(categorized_gear, purposes.auto_attack,
+	local prefiltered_gear = categorized_gear
+	--local prefiltered_gear = filter_per_slot(categorized_gear, purposes.auto_attack)
+	filter_dimensional(prefiltered_gear, purposes.auto_attack,
 		function(result)
 			print(" ------- DING, FRIES ARE DONE -------")
 			print("result is a " .. type(result)) -- .. " : " .. tostring(result))
 			if type(result) == "table" then
 				print(tcount(result) .. " entries")
 			end
+			-- TODO: Character name, job, level, purpose etc
+			local base_file_name = "plot_points"
+			local csv = io.open(base_file_name .. ".csv", "w")
+			local obj = io.open(base_file_name .. ".obj", "w")
+			obj:write("o " .. base_file_name .. "\n")
 			for k,v in pairs(result) do
 				print(get_gear_set_string(v.gear_list_ref, v.indices) .. " : " .. array_tostring_horizontal(v.apparent_utility_results))
+				local csv_line = ""
+				local obj_line = "v "
+				for iCoord = 1,#(v.apparent_utility_results) do
+					if iCoord > 1 then
+						csv_line = csv_line .. ","
+						obj_line = obj_line .. " "
+					end
+					csv_line = csv_line .. v.apparent_utility_results[iCoord]
+					obj_line = obj_line .. v.apparent_utility_results[iCoord]
+				end
+				csv_line = csv_line .. "\n"
+				csv:write(csv_line)
+				obj_line = obj_line .. "\n"
+				obj:write(obj_line)
 			end
+			obj:close()
+			csv:close()
 		end
 	)
 end

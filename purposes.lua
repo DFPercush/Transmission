@@ -3,14 +3,23 @@ local r = {}
 
 local EMPTY_TABLE = {}
 
+local function calc_total_mods(gear_list, indices)
+	local r = {}
+	r.by_name = function(t, alias, default_value)
+		return t[get_modifier_id(alias)] or default_value or 0
+	end
+	apply_set_mods_by_index(r, gear_list, indices)
+	return r
+end
+
 r.auto_attack = 
 	{
 		num_of_dimensions = 3, -- Could possibly make this a table that describes the dimensions, and if you want the number, just get the length of the table
-		apparent_utility = function(gear_list, cur_indeces, player_optional)
+		apparent_utility = function(gear_list, cur_indices, player_optional)
 			
 			function get_slot(slot_name)
 				--local item = gear_list[slot_name][cur_indeces[TM_FLAGS.slot_index[slot_name]+1]]
-				local item = gear_list[slot_name][cur_indeces[TM_FLAGS.slot_index[slot_name]]]
+				local item = gear_list[slot_name][cur_indices[TM_FLAGS.slot_index[slot_name]]]
 				if (item == nil) then return EMPTY_TABLE end
 				return item
 			end
@@ -21,9 +30,9 @@ r.auto_attack =
 			end
 			local player = player_optional or get_player()
 			--local main = resources.items[gear_set["Main"].id]
-			local main = slot_res("Main")
+			local main = slot_res("Main") or {}
 			--local sub = resources.items[gear_set["Sub"].id]
-			local sub = slot_res("Sub")
+			local sub = slot_res("Sub") or {}
 			--local ret = {}
 
 			--local is_dual_wield = ((resources.items[gear_set["Main"].id].category == "Weapon") and (resources.items[gear_set["Sub"].id].category == "Weapon"))
@@ -50,15 +59,17 @@ r.auto_attack =
 				-- delay / dps
 				-- crit rate / dmg
 
-			local total_mods = {} -- TODO: Memory allocation overhead?
+			local total_mods = calc_total_mods(gear_list, cur_indices) --{} -- TODO: Memory allocation overhead?
 			--apply_set_mods(total_mods, gear_set);
-			apply_set_mods_by_index(total_mods, gear_list, cur_indeces)
+			--apply_set_mods_by_index(total_mods, gear_list, cur_indices)
+			--print("Total mods for combination: ")
+			--print(total_mods)
 
 			-- Assuming we hit, how much damage
-			local att = forcenumber(total_mods.ATT)
-			local str = forcenumber(total_mods.STR)
+			local att = total_mods:by_name("ATT")
+			local str = total_mods:by_name("STR")
 			local estimate_per_swing = weapon_damage + (str * ((str/2) + att))
-			local estimate_swings = get_average_swings(gear_list, cur_indeces, total_mods, player)
+			local estimate_swings = get_average_swings(gear_list, cur_indices, total_mods, player)
 
 			-- returns:
 				-- [1] = attack/str
@@ -76,9 +87,9 @@ r.auto_attack =
 			local ret = {}
 			ret[1] = 
 				(estimate_per_swing * estimate_swings / weapon_delay) + 
-				((natural_h2h_damage + forcenumber(total_mods.KICK_DMG)) * forcenumber(total_mods.KICK_ATTACK_RATE) / 100 / weapon_delay);
-			ret[2] = forcenumber(total_mods.ACC) -- TODO: peacock charm showing 0?
-			ret[3] = forcenumber(total_mods.HASTE_GEAR) -- TODO: Delay on weapons
+				((natural_h2h_damage + total_mods:by_name("KICK_DMG")) * total_mods:by_name("KICK_ATTACK_RATE") / 100 / weapon_delay);
+			ret[2] = total_mods:by_name("ACC") -- TODO: peacock charm showing 0?
+			ret[3] = (total_mods:by_name("HASTE_GEAR") + 1) / (weapon_delay) -- TODO: Delay on weapons
 			return ret
 		end,
 		

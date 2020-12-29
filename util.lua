@@ -3,6 +3,7 @@
 -- Windower resources
 local res = require("resources")
 local flags = require("flags")
+local modifiers = require("modifiers")
 
 -- Typical call:  if hasbit(x, bit(3)) then ...
 function hasbit(x, p) return x % (p + p) >= p end
@@ -259,8 +260,8 @@ function apply_set_mods(mod_accum, gear_set)
 end
 
 function apply_set_mods_by_index(mod_accum, gears, cur_indeces)
-	function get_slot(slot_name)
-		return gears[slot_name][cur_indeces[flags.slot_index[slot_name]+1]]
+	local function get_slot(slot_name)
+		return gears[slot_name][cur_indeces[flags.slot_index[slot_name]]]
 	end
 	for k,slot_obj in pairs(resources.slots) do
 		local item = get_slot(slot_obj.en)
@@ -395,7 +396,7 @@ end
 
 function filter_array_in_place(t, predicate)
 	function default_predicate(x)
-		return x == nil
+		return x ~= nil
 	end
 	if predicate == nil then predicate = default_predicate end
 	--predicate = predicate or default_predicate
@@ -404,7 +405,7 @@ function filter_array_in_place(t, predicate)
 	local len = #t
 	--print("filter_array_in_place(): len = " .. len)
 	for read_from = 1, len do
-		if not predicate(t[read_from]) then
+		if predicate(t[read_from]) then
 			--print("[" .. read_from .. "]" .. " -> [" .. write_to .. "]")
 			t[write_to] = t[read_from]
 			write_to = write_to + 1
@@ -430,3 +431,17 @@ end
 function get_slot_name_of_item(item)
 	return resources.slots[get_equipment_slot_id_of_item(item)].en
 end
+
+function teq(t1, t2)
+	-- tables equal? (contents, not references)
+	for k,v in pairs(t1) do
+		if type(t1[k]) ~= type(t2[k]) then return false end
+		if type(t1[k]) == "table" then
+			if not teq(t1[k], t2[k]) then return false end
+		else
+			if t1[k] ~= t2[k] then return false end
+		end
+	end
+	return true
+end
+
