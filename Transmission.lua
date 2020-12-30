@@ -373,6 +373,7 @@ function filter_per_slot(categorized_gear_list, purpose)
 	local test_results = {}
 	local player = get_player()
 	local ret = {}
+	local slot_name
 	--print("BEFORE: " .. tostring(categorized_gear_list["Main"]))
 	ret.Main = categorized_gear_list.Main
 	ret.Sub = categorized_gear_list.Sub
@@ -380,8 +381,9 @@ function filter_per_slot(categorized_gear_list, purpose)
 	ret["Right Ear"] = categorized_gear_list["Right Ear"]
 	ret["Left Ring"] = categorized_gear_list["Left Ring"]
 	ret["Right Ring"] = categorized_gear_list["Right Ring"]
-	for _,iSlot in pairs({2,3,4,5,6,7,8,9,10,15}) do -- = 0, 15 do
-		local slot_name = resources.slots[iSlot].en
+	for iSlot = 0, 15 do
+	--for _,iSlot in pairs({2,3,4,5,6,7,8,9,10,15}) do -- = 0, 15 do
+		slot_name = resources.slots[iSlot].en
 		test_results = {}
 		for iItem = 1, #(categorized_gear_list[slot_name]) do
 			--print("Slot " .. slot_name .. " item " .. iItem)
@@ -398,14 +400,54 @@ function filter_per_slot(categorized_gear_list, purpose)
 		end
 		--print(slot_name .. ": " .. #test_results .. " / " .. #(categorized_gear_list[slot_name]))
 		local filtered_slot = {}
-		
 		for _,combo in pairs(test_results) do
-			--print(zero_based_array_tostring_horizontal(combo.indices))
-			--print("categorized_gear_list[\"" .. resources.slots[iSlot].en .. "\"[" .. combo[iSlot] .. "] = " .. tostring(categorized_gear_list[resources.slots[iSlot].en][combo[iSlot]]))
 			filtered_slot[#filtered_slot+1] = categorized_gear_list[iSlot][combo.indices[iSlot]]
 		end
+		
+		-- Weapons, rings, earrings
+		if iSlot == 0 or iSlot == 1 or (iSlot >= 11 and iSlot <= 14) then
+			-- Again!
+			local first_pass_results = test_results
+			--print(slot_name .. ": " .. tcount(test_results) .. " items on first pass:")
+			--for _,result in pairs(test_results) do
+			--	print("  " .. resources.items[categorized_gear_list[iSlot][result.indices[iSlot]].id].en)
+			--end
+			test_results = {}
+			for iItem = 1, #(categorized_gear_list[slot_name]) do
+				local skip = false
+				for iFirstPass = 1, #first_pass_results do
+					--if categorized_gear_list[iSlot][iItem] == filtered_slot[iFirstPass] then skip = true end
+					--print(array_tostring_horizontal(first_pass_results[iFirstPass].indices))
+					if iItem == first_pass_results[iFirstPass].indices[iSlot] then skip = true end
+				end
+				if not skip then
+					test_indices = shallow_copy(static_zero_indices)
+					test_indices[iSlot] = iItem
+					add_and_filter_set_combination(test_results, purpose, 
+					{
+						gear_list_ref = categorized_gear_list,
+						purpose_checked_against = purpose,
+						indices = test_indices,
+						apparent_utility_results = purpose.apparent_utility(categorized_gear_list, test_indices, player),
+					})
+				else
+					--print("skipping " .. resources.items[categorized_gear_list[iSlot][iItem].id	].en)
+				end -- not skip
+			end -- for iItem second pass
+			-- TODO: (low pri) Maybe I could refactor this repetition into another function
+			--print(slot_name .. ": " .. tcount(test_results) .. " items on second pass")
+			--for _,result in pairs(test_results) do
+			--	print("  " .. resources.items[categorized_gear_list[iSlot][result.indices[iSlot]].id].en)
+			--end
+
+			for _,combo in pairs(test_results) do
+				filtered_slot[#filtered_slot+1] = categorized_gear_list[iSlot][combo.indices[iSlot]]
+			end	
+		end -- if ring earring weapon
+
 		ret[resources.slots[iSlot].en] = filtered_slot
 	end
+
 	--print("AFTER: " .. tostring(ret["Main"]))
 	populate_gear_list_numerics(ret)
 	return ret
@@ -413,11 +455,20 @@ end
 
 function estimate_permutation_size(categorized_gear_set)
 	local ret = 1
+	-- TODO: Be more accurate 2,10
 	for iSlot = 0, 10 do
 		local numThisSlot = categorized_gear_set.count[iSlot]
 		if numThisSlot > 0 then
 			ret = ret * numThisSlot
 		end
+	end
+
+	-- Weapons
+	local player = get_player()
+	if (get_dual_wield_level(player) > 0) then
+
+	else
+
 	end
 
 	-- Back
@@ -834,7 +885,7 @@ handle_command = function()
 			local obj = io.open(base_file_name .. ".obj", "w")
 			obj:write("o " .. base_file_name .. "\n")
 			for k,v in pairs(result) do
-				print(get_gear_set_string(v.gear_list_ref, v.indices) .. " : " .. array_tostring_horizontal(v.apparent_utility_results))
+				--print(get_gear_set_string(v.gear_list_ref, v.indices) .. " : " .. array_tostring_horizontal(v.apparent_utility_results))
 				local csv_line = ""
 				local obj_line = "v "
 				for iCoord = 1,#(v.apparent_utility_results) do
