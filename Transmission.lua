@@ -1,3 +1,14 @@
+local purposes = require "purposes"
+--[[
+
+Transmission
+An FFXI "gear shifting" addon that automatically finds and optimizes
+equipment for various purposes with minimal end user scripting.
+
+By DFPercush and Silver_Skree
+
+]]
+
 -- TODO:
 	-- stats_i_care_about_on("war", "auto_attack", "ws", "def" ...)
 		-- or ("rng", {ratt=100, racc=75, ...}, {exclude_list})
@@ -36,6 +47,9 @@ windower.register_event('unload',function ()
 	end
 end)
 
+-- Third party libraries
+local Promise = require("deferred")
+
 -- This addon
 require('util')
 require('generate_useful_combinations_v1')
@@ -46,6 +60,8 @@ local job_index = flags.job_index
 --local slot_flags = flags.slot_flags
 require("modifier_aliases")
 require("multi_hit_weapons")
+require("react_to_next")
+local Err = require("errors")
 
 -- From topaz/src/modifier.h
 -- cat mods-enum-cpp.txt | sed s/\\\ *\\\([A-Za-z0-9_]*\\\)\\\ *=\\\ *\\\([0-9]*\\\).*/\\\[\\\2\\\]=\\\"\\\1\\\",/ > modifiers.lua
@@ -463,25 +479,19 @@ function estimate_permutation_size(categorized_gear_set)
 		end
 	end
 
-	-- Weapons
-	local player = get_player()
-	if (get_dual_wield_level(player) > 0) then
-
-	else
-
-	end
-
 	-- Back
 	if categorized_gear_set.count[15] > 0 then ret = ret * categorized_gear_set.count[15] end
 
 	-- Earrings
-	if categorized_gear_set.count[11] > 0 then
-		ret = ret * (categorized_gear_set.count[11] ^ 2) / 2
+	local num_earrings = categorized_gear_set.count[11]
+	if num_earrings > 1 then
+		ret = ret * (num_earrings * (num_earrings - 1)) / 2
 	end
 
 	-- Rings
-	if categorized_gear_set.count[13] > 0 then
-		ret = ret * (categorized_gear_set.count[13] ^ 2) / 2
+	local num_rings = categorized_gear_set.count[13]
+	if num_rings > 1 then
+		ret = ret * (num_rings * (num_rings - 1)) / 2
 	end
 	return ret
 end
@@ -868,6 +878,8 @@ end
 --local COMBINATION_FUNCTION = filter_dimensional
 
 handle_command = function()
+	print("type(gearswap) = " .. type(gearswap))
+	if true then return end
 	local relevant_gear = get_relevant_gear("auto_attack") -- TODO: pass a table instead of a name
 	local categorized_gear = categorize_gear_by_slot(relevant_gear)
 	--local prefiltered_gear = categorized_gear
@@ -908,4 +920,8 @@ handle_command = function()
 end
 
 windower.register_event('addon command', handle_command)
-
+windower.register_event("action",
+	function(action)
+		print(action)
+	end
+)
