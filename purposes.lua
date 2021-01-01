@@ -28,7 +28,7 @@ r.auto_attack =
 				if (item == nil) then return EMPTY_TABLE end
 				return resources.items[get_slot(slot_name).id]
 			end
-			local player = player_optional or get_player()
+			local player = player_optional or Client.get_player()
 			--local main = resources.items[gear_set["Main"].id]
 			local main = slot_res("Main") or {}
 			--local sub = resources.items[gear_set["Sub"].id]
@@ -44,14 +44,14 @@ r.auto_attack =
 			local weapon_delay = forcenumber(slot_res("Main").delay) + forcenumber(slot_res("Sub").delay)
 			
 			-- Assume sets with dual wield (i.e. containing two weapons) will be passed in; handle filtering of sets based on presence of dual wield BEFORE this function is entered
-			local dual_wield_level = get_dual_wield_level()
+			local dual_wield_level = Client.player_utils.get_dual_wield_level()
 			if is_dual_wield then weapon_delay = weapon_delay * ({1, .9, .85, .75, .7, .65}[dual_wield_level+1]) end
 			local natural_h2h_damage = (player.skills.hand_to_hand * 0.11) + 3
 			if main.skill == 1 or (main.id == nil and sub.id == nil) then
 				-- Hand to hand skill or bare handed
 				--print("h2h")
 				weapon_damage = forcenumber(main.damage) + natural_h2h_damage
-				weapon_delay = {480, 400, 380, 360, 340, 320, 300, 280}[get_martial_arts_level(player) + 1]
+				weapon_delay = {480, 400, 380, 360, 340, 320, 300, 280}[Client.player_utils.get_martial_arts_level(player) + 1]
 			end
 
 			-- TODO:

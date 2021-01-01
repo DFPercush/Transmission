@@ -206,6 +206,8 @@ function M.new(options)
 			end
 			return next
 		end,
+		-- Modified DFP, added catch()
+		catch = function(self, failure) return self:next(nil, failure) end,
 		state = 0,
 		queue = {},
 		success = options.success,

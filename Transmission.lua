@@ -34,24 +34,32 @@ local PERMUTE_BATCH_SIZE = 1000  -- Set combinations
 local PERMUTE_BATCH_DELAY = 0 -- Seconds
 -- There is also TEST_COMBINATION_FUNCTION - use search, must be defined below
 
--- Windower components
+
+-- Abstraction layer
+require('client')
+
+
+-- Client (windower) components
 require('chat')
 require('logger')
-local res = require("resources")
+local res = Client.resources
 resources = res
 __OUTSTANDING_COROUTINES__ = {}
 function schedule(f,t) local id = coroutine.schedule(f,t); table.insert(__OUTSTANDING_COROUTINES__, id) end
-windower.register_event('unload',function ()
+Client.register_event('unload',function ()
 	for i, coroutine_id in pairs(__OUTSTANDING_COROUTINES__) do
 		coroutine.close(coroutine_id)
 	end
 end)
+
+
 
 -- Third party libraries
 local Promise = require("deferred")
 
 -- This addon
 require('util')
+require('feedback')
 require('generate_useful_combinations_v1')
 local flags = require('flags')
 TM_FLAGS = flags
@@ -116,30 +124,15 @@ require("rslot")
 
 
 
---windower.register_event("action", function(ac)
-	--if ac.actor_id ~= windower.ffxi.get_player().id then return end
+
+--Client.register_event("action", function(ac)
+	--if ac.actor_id ~= Client.get_player().id then return end
 	--if ac.category ~= 8 then return end -- spell cast start
 	--log("Action " .. ac.category .. ":" .. ac.param)
 --end)
 
 
-function can_equip(item, player_optional)
-	--things to check: race/gender, job, level
-	-- TODO: Filter only category
-	local player = player_optional or get_player()
-	local res_item = res.items[item.id]
-	if res_item.category ~= "Weapon" and res_item.category ~= "Armor" then return false end
-
-	if item ~= nil and item.id ~= nil and res.items[item.id] ~= nil then
-		if not res_item.races[player.race] then return false end
-		if not res_item.jobs[job_index[player.main_job]] then return false end
-		if player.main_job_level < res_item.level then return false end
-		return true
-	end
-	return false
-end
-
-function filter_relevant(equipment_list, purpose_name)
+local function filter_relevant(equipment_list, purpose_name)
 	local ret = {}
 	local has = false
 	local relevant_stats
@@ -199,132 +192,11 @@ function filter_relevant(equipment_list, purpose_name)
 	return ret
 end
 
-
-function get_all_items()
-	local bags = windower.ffxi.get_items()
-	local ret = {}
-	for bagName,bag in pairs(bags) do
-		for _, item in pairs(bag) do
-			if type(item) == 'table' and item.id ~= nil and item.id > 0 then
-				if res.items[item.id] ~= nil
-				--and (res.items[item.id].category == "Armor" or res.items[item.id].category == "Weapon")
-				then
-					--ret[item.id] = item
-					--ret[item.id].storage = bagName
-					
-					local nextIndex = #ret
-					ret[nextIndex] = shallow_copy(item)
-					ret[nextIndex].storage = bagName
-				end
-			end
-		end
-	end
-	return ret
-end
-
-function get_all_equipment()
-	local ret = {}
-	for id, item in pairs(get_all_items()) do
-		if res.items[item.id] ~= nil
-		 and (res.items[item.id].category == "Armor" or res.items[item.id].category == "Weapon")
-		 then
-			--ret[id] = item
-			ret[#ret+1] = item
-		 end
-	end
-	return ret
-end
-
-function filter_is_equipment(items)
-	local ret = {}
-	for _, item in items do
-		if res[item.id] ~= nil and (res.items[item.id].category == "Armor" or res.items[item.id].category == "Weapon") then
-			--ret [id] = item
-			local nextIndex = #ret
-			ret[nextIndex] = shallow_copy(item)
-		end
-		
-	end
-	return ret
-end
-
-function filter_in_equippable_storage(items)
-	local ret = {}
-	for _,item in pairs(items) do
-		if item.storage == "inventory" or item.storage == "wardrobe" or item.storage == "wardrobe2" or item.storage == "wardrobe3" or item.storage == "wardrobe4" then
-			--ret[id] = item
-			local nextIndex = #ret
-			ret[nextIndex] = shallow_copy(item)
-		end
-	end
-	return ret
-end
-
-function get_equippable_equipment()
-	--notice("Boop")
-	--notice("p1=" .. p1 .. "  p2=" .. p2)
-	local count = 0
-	local bags = windower.ffxi.get_items()
-	local player = get_player()
-	local ret = {}
-	local num_added = 0
-	--print(bags)
-
-	--res.items:with("id",
-	--(RESOURCES.item_descriptions[id].en)
-
-
-	--for k,v in pairs(bags) do
-	--	if type(v) == 'table' then
-	--		print(k)
-	--	end
-	--end
-
-	-- temp
-	ar1 = "auto_attack"
-
-	-- categories are "Weapon", "Armor", "Usable", "General"
-
-	for bagName,bag in pairs(bags) do
-		--notice(len(bags) .. " bags")
-		--bag = windower.ffxi.get_items(bagId)
-		--print(bag)
-		if (bagName == "inventory") or (bagName == "wardrobe") or (bagName == "wardrobe2") or (bagName == "wardrobe3") or (bagName == "wardrobe4") then
-			for _, item in pairs(bag) do
-				if type(item) == 'table' and item.id ~= nil and item.id > 0 then
-					--if (item.id ~= nil) and (item.id ~= 0) then
-						if res.items[item.id] ~= nil
-						 --and (res.items[item.id].category == "Armor" or res.items[item.id].category == "Weapon")
-						 then
-							if can_equip(item, player) then
-								--print(res.items[item.id].en)
-								--ret[#ret+1] = item
-								
-								--ret[item.id] = item
-								--ret[item.id].storage = bagName
-
-								local nextIndex = #ret+1
-								ret[nextIndex] = shallow_copy(item)
-								ret[nextIndex].storage = bagName
-								num_added = num_added + 1
-							end
-						else
-							warn("No resource for item id " .. item.id)
-						end -- items resource
-					--end -- item id nil/0
-				end -- item nil/0
-			end -- for items in bag
-		end -- if valid bag
-	end -- for bagId
-	return ret
-end
-
-function get_relevant_gear(purpose_name)
+local function get_relevant_gear(purpose_name)
 	return filter_relevant(get_equippable_equipment(), purpose_name)
 end
 
-
-function categorize_gear_by_slot(gear_list)
+local function categorize_gear_by_slot(gear_list)
 	local ret = {}
 	local gear_list_copy = shallow_copy(gear_list)
 	for _, slot in pairs(res.slots) do
@@ -350,7 +222,7 @@ function categorize_gear_by_slot(gear_list)
 				There needs to be special casing that says,
 				"If the player has dual wield, all one-handed weapons should get copied to the sub slot"
 	]]
-	if (get_dual_wield_level(get_player()) == 0) then
+	if (Client.player_utils.get_dual_wield_level(Client.get_player()) == 0) then
 		for k, item in pairs(ret.Sub) do
 			-- TODO: if equipppable in main, but not dual wield, remove from sub
 			--ret.Sub[k] = v
@@ -364,7 +236,7 @@ function categorize_gear_by_slot(gear_list)
 	return ret
 end
 
-function populate_gear_list_numerics(gear_list)
+local function populate_gear_list_numerics(gear_list)
 	gear_list.count = {}
 	for _,slot in pairs(resources.slots) do
 		gear_list[slot.id] = gear_list[slot.en]
@@ -373,7 +245,7 @@ function populate_gear_list_numerics(gear_list)
 	return gear_list
 end
 
-function filter_per_slot(categorized_gear_list, purpose)
+local function filter_per_slot(categorized_gear_list, purpose)
 	-- Do a little per-slot filtering of individual items,
 	--  to remove complete garbage from the gear set permutation size.
 	-- Build a naked set, plus the item in question, and filter them the same
@@ -387,7 +259,7 @@ function filter_per_slot(categorized_gear_list, purpose)
 	local static_zero_indices = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,[0]=0}
 	local test_indices
 	local test_results = {}
-	local player = get_player()
+	local player = Client.get_player()
 	local ret = {}
 	local slot_name
 	--print("BEFORE: " .. tostring(categorized_gear_list["Main"]))
@@ -600,7 +472,7 @@ local function initializer_factory(gear_list)
 			set[left_index+1] = 0
 		end
 	end
-	r = {}
+	local r = {}
 	r.init_rings    = function(set)  _init_ring_or_earring_slots(set, true)  end
 	r.init_earrings = function(set)  _init_ring_or_earring_slots(set, false) end
 	r.create_initial_set = function()
@@ -680,7 +552,7 @@ local function permutator_factory(gear_list)
 end
 
 
-function filter_dimensional(gear_list, purpose, done_callback)
+local function filter_dimensional(gear_list, purpose, done_callback)
 	-- Schema:
 	-- gear_list[slot name][1~n] = an item
 	-- e.g. gear_list["Head"][1].id  <-- is item id of an equippable head piece
@@ -689,14 +561,15 @@ function filter_dimensional(gear_list, purpose, done_callback)
 	local permute = permutator_factory(gear_list)
 
 	local count = 0
-	local player = get_player()
+	local player = Client.get_player()
 	local last_progress_report_time = os.time()
 	local start_time = os.time()
 	local is_long_mode_reported = false
-	capturable_purpose = purpose
-	total_permutations_estimate = estimate_permutation_size(gear_list)
+	local capturable_purpose = purpose
+	local total_permutations_estimate = estimate_permutation_size(gear_list)
+	local done_promise = Promise.new()
 	
-	periodic_permute = function(cur_indices, built_sets, batch_size, count, done_callback)
+	local periodic_permute = function(cur_indices, built_sets, batch_size, count)
 		local s = count
 		local e = count + batch_size
 		for i = s, e-1 do
@@ -721,7 +594,8 @@ function filter_dimensional(gear_list, purpose, done_callback)
 				
 				if (hard_cap_hit) then warning("Hard cap reached: " .. MAX_ITERATIONS_LIMIT .. " iterations.") end
 				notice("Finished in " .. count .. " iterations.")
-				done_callback(built_sets)
+				--done_callback(built_sets)
+				done_promise:resolve(built_sets)
 				break
 			end
 			if (count == e) then
@@ -739,13 +613,14 @@ function filter_dimensional(gear_list, purpose, done_callback)
 					notice("Progress: Found " .. #built_sets .. " gear sets from " .. count .. " / " .. total_permutations_estimate .. " combinations...")
 					last_progress_report_time = now
 				end
-				schedule(function() periodic_permute(cur_indices, built_sets, batch_size, count, done_callback) end, PERMUTE_BATCH_DELAY)
+				schedule(function() periodic_permute(cur_indices, built_sets, batch_size, count) end, PERMUTE_BATCH_DELAY)
 			end
 		end -- for (batch_size)
 	end --function periodic_permute
 
 	notice("Estimated permutations for current inventory: " .. total_permutations_estimate)
 	periodic_permute(cur_indices, {}, PERMUTE_BATCH_SIZE, 0, done_callback)
+	return done_promise
 end
 
 function get_gear_set_string(gear_list, cur_indices)
@@ -762,8 +637,8 @@ function get_gear_set_string(gear_list, cur_indices)
 	return ret
 end
 
---windower.register_event('action message',function (actor_id, target_id, actor_index, target_index, message_id, param_one, param_2, param_3)
---	--if actor_id ~= windower.ffxi.get_player().id then return end
+--Client.register_event('action message',function (actor_id, target_id, actor_index, target_index, message_id, param_one, param_2, param_3)
+--	--if actor_id ~= Cleint.get_player().id then return end
 --	log("Message " .. message_id)
 --end)
 
@@ -870,7 +745,7 @@ end
 
 
 function peep()
-	local target = windower.ffxi.get_mob_by_target("t")
+	local target = Client.get_target()
 	print(target)
 end
 
@@ -878,13 +753,17 @@ end
 --local COMBINATION_FUNCTION = filter_dimensional
 
 handle_command = function()
-	print("type(gearswap) = " .. type(gearswap))
-	if true then return end
+
+	--local p = Promise.new():next(function() print("Promise resolved") end)
+	--coroutine.schedule(function() p:resolve() end, .1)
+	--if true then return end
+
+
 	local relevant_gear = get_relevant_gear("auto_attack") -- TODO: pass a table instead of a name
 	local categorized_gear = categorize_gear_by_slot(relevant_gear)
 	--local prefiltered_gear = categorized_gear
 	local prefiltered_gear = filter_per_slot(categorized_gear, purposes.auto_attack)
-	filter_dimensional(prefiltered_gear, purposes.auto_attack,
+	filter_dimensional(prefiltered_gear, purposes.auto_attack):next(
 		function(result)
 			print(" ------- DING, FRIES ARE DONE -------")
 			print("result is a " .. type(result)) -- .. " : " .. tostring(result))
@@ -892,7 +771,8 @@ handle_command = function()
 				print(tcount(result) .. " entries")
 			end
 			-- TODO: Character name, job, level, purpose etc
-			local base_file_name = "plot_points"
+			local player = Client.get_player()
+			local base_file_name = "plot_" .. player.name .. "_" .. player.main_job .. player.main_job_level .. player.sub_job .. player.sub_job_level
 			local csv = io.open(base_file_name .. ".csv", "w")
 			local obj = io.open(base_file_name .. ".obj", "w")
 			obj:write("o " .. base_file_name .. "\n")
@@ -915,13 +795,23 @@ handle_command = function()
 			end
 			obj:close()
 			csv:close()
+			return "Finished output"
 		end
-	)
+	):catch(function (why)
+		error("Calculation interrupted: " .. tostring(why))
+	end)
 end
 
-windower.register_event('addon command', handle_command)
-windower.register_event("action",
-	function(action)
-		print(action)
-	end
-)
+--[[
+RA = require("rolling_average")
+local av = RA.new()
+for x=1,50 do
+	av:add_value(100)
+end
+print(av)
+av:add_value(0)
+print(av)
+]]
+
+--Client.register_event('addon command', handle_command)
+--Client.register_event("action",function(action) print(action) end)
