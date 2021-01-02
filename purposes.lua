@@ -8,9 +8,9 @@ local EMPTY_TABLE = {}
 local function calc_total_mods(gear_list, indices)
 	local r = {}
 	r.by_name = function(t, alias, default_value)
-		return t[get_modifier_id(alias)] or default_value or 0
+		return t[Client.item_utils.get_modifier_id(alias)] or default_value or 0
 	end
-	apply_set_mods_by_index(r, gear_list, indices)
+	Client.item_utils.apply_set_mods_by_index(r, gear_list, indices)
 	return r
 end
 

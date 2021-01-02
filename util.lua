@@ -148,35 +148,6 @@ function min(...)
 	return ret
 end
 
-function apply_item_mods(mod_accum, item)
-	for mod_id,mod_amount in pairs(item_mods[item.id]) do
-		mod_accum[mod_id] = mod_accum[mod_id] or 0
-		mod_accum[mod_id] = mod_accum[mod_id] + mod_amount
-	end
-end
-
-function apply_set_mods(mod_accum, gear_set)
-	for _, item in pairs(gear_set) do
-		apply_item_mods(mod_accum, item)
-	end
-end
-
-function apply_set_mods_by_index(mod_accum, gears, cur_indeces)
-	local function get_slot(slot_name)
-		return gears[slot_name][cur_indeces[flags.slot_index[slot_name]]]
-	end
-	for k,slot_obj in pairs(resources.slots) do
-		local item = get_slot(slot_obj.en)
-		if item ~= nil then
-			apply_item_mods(mod_accum, item)
-		end
-	end
-end
-
-function get_modifier_id(alias)
-	return modifiers[get_modifier_by_alias(alias)]
-end
-
 -- multi_for_next:
 --  Increments a list of indexes or values and carries over when one of them exceeds max.
 --  It's like a state machine for a multi-dimensional for loop

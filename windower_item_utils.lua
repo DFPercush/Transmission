@@ -1,3 +1,5 @@
+require('util')
+
 local R = {
 	flags = require('flags')
 }
@@ -159,6 +161,94 @@ end
 
 function R.get_slot_name_of_item(item)
 	return resources.slots[get_equipment_slot_id_of_item(item)].en
+end
+
+
+
+
+
+-- From topaz/src/modifier.h
+-- cat mods-enum-cpp.txt | sed s/\\\ *\\\([A-Za-z0-9_]*\\\)\\\ *=\\\ *\\\([0-9]*\\\).*/\\\[\\\2\\\]=\\\"\\\1\\\",/ > modifiers.lua
+-- will require slight editing at beginning and end of file
+R.modifiers = require("modifiers")
+	-- two-way mapping for modifiers
+	for k,v in pairs(R.modifiers) do
+		R.modifiers[v] = k
+	end
+
+
+
+local create_get_modifier_by_alias = require('modifier_aliases')
+R.get_modifier_by_alias = create_get_modifier_by_alias(R.modifiers) -- State capture! Factory pattern!! PROGRAMMING!!!
+
+
+
+-- From sql/item_mods.sql
+-- OLD: cat item_mods.sql | sed s/[^0-9]*\\\([0-9]*\\\),\\\([0-9]*\\\),\\\([0-9-]*\\\).*/\{item_id=\\1,mod=\\2,value=\\3\},/ > item_mods_data.lua
+-- cat item_mods.sql | sed s/[^0-9\\-]*\\\([0-9]*\\\),\\\([0-9]*\\\),\\\([0-9-]*\\\).*/\{item_id=\\1,mod=\\2,value=\\3\},/ > item_mods_data.lua
+local item_mods_data = require("item_mods_data")
+
+R.item_mods = {}
+	-- convert relational database data to tables
+	-- item_mods[item_id][mod_index] = amount
+	for _,mod in pairs(item_mods_data) do
+		R.item_mods[mod.item_id] = R.item_mods[mod.item_id] or {}
+		R.item_mods[mod.item_id][mod.mod] = mod.value
+	end
+
+
+
+-- SELECT itemId,dmg,delay FROM item_weapon;
+-- cat weapon_dmg_delay.csv | sed s/\\\([0-9]*\\\),\\\([0-9]*\\\),\\\([0-9]*\\\)/\\\{item_id=\\1,dmg=\\2,delay=\\3\\\},/ > weapon_dmg_delay.lua
+local weapon_dmg_delay = require("weapon_dmg_delay")
+
+for _,weapon_info in pairs(weapon_dmg_delay) do
+	if forcenumber(weapon_info.dmg) ~= 0 then
+		item_mods_data[#item_mods_data+1] = {
+			item_id=weapon_info.item_id,
+			mod=160, -- DMG
+			value=weapon_info.dmg
+		}
+		item_mods_data[#item_mods_data+1] = {
+			item_id=weapon_info.item_id,
+			mod=171, -- DELAY
+			value=weapon_info.delay
+		}
+	end
+end
+
+item_mods_data = nil
+
+
+
+
+function R.apply_item_mods(mod_accum, item)
+	for mod_id,mod_amount in pairs(R.item_mods[item.id]) do
+		mod_accum[mod_id] = mod_accum[mod_id] or 0
+		mod_accum[mod_id] = mod_accum[mod_id] + mod_amount
+	end
+end
+
+function R.apply_set_mods(mod_accum, gear_set)
+	for _, item in pairs(gear_set) do
+		R.apply_item_mods(mod_accum, item)
+	end
+end
+
+function R.apply_set_mods_by_index(mod_accum, gears, cur_indeces)
+	local function get_slot(slot_name)
+		return gears[slot_name][cur_indeces[R.flags.slot_index[slot_name]]]
+	end
+	for k,slot_obj in pairs(resources.slots) do
+		local item = get_slot(slot_obj.en)
+		if item ~= nil then
+			R.apply_item_mods(mod_accum, item)
+		end
+	end
+end
+
+function R.get_modifier_id(alias)
+	return R.modifiers[R.get_modifier_by_alias(alias)]
 end
 
 return R

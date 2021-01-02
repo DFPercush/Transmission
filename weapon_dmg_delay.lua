@@ -1,4 +1,4 @@
-WEAPON_DAMAGE_DELAY = {
+local WEAPON_DAMAGE_DELAY = {
 {item_id=16385,dmg=1,delay=528},
 {item_id=16386,dmg=2,delay=528},
 {item_id=16387,dmg=3,delay=528},
@@ -4753,3 +4753,4 @@ WEAPON_DAMAGE_DELAY = {
 {item_id=22297,dmg=0,delay=999},
 {item_id=22298,dmg=0,delay=999},
 }
+return WEAPON_DAMAGE_DELAY
