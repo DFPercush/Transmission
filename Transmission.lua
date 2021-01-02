@@ -37,9 +37,10 @@ local PERMUTE_BATCH_DELAY = 0 -- Seconds
 
 -- Abstraction layer
 require('client')
-heuristics_tracker = require('feedback')
+local purposes = require("purposes") -- Depends on global Client; require client first
 
 -- Client (windower) components
+-- TODO: Move to the client module...?
 require('chat')
 require('logger')
 local res = Client.resources
@@ -61,10 +62,6 @@ local Promise = require("deferred")
 require('util')
 require('feedback')
 require('generate_useful_combinations_v1')
-local flags = require('flags')
-TM_FLAGS = flags
-local job_flags = flags.job_flags
-local job_index = flags.job_index
 --local slot_flags = flags.slot_flags
 require("modifier_aliases")
 require("multi_hit_weapons")
@@ -115,9 +112,6 @@ item_mods = {}
 	end
 item_mods_data = nil
 
--- Here, a purpose means any action (like a spell, ability, or weapon skill),
---	or state (like auto_attack, idle/movement speed), which can be boosted by gear.
-local purposes = require("purposes")
 
 require("rslot")
 
@@ -175,7 +169,7 @@ local function filter_relevant(equipment_list, purpose_name)
 					for iRet = 1, #ret do
 						if ret[iRet].id == item.id then num_this_item = num_this_item + 1 end
 					end
-					if num_this_item < quantity_limits[get_equipment_slot_id_of_item(item)] then
+					if num_this_item < quantity_limits[Client.item_utils.get_equipment_slot_id_of_item(item)] then
 						local nextIndex = #ret+1
 						ret[nextIndex] = shallow_copy(item)
 						has = true
@@ -193,7 +187,16 @@ local function filter_relevant(equipment_list, purpose_name)
 end
 
 local function get_relevant_gear(purpose_name)
-	return filter_relevant(get_equippable_equipment(), purpose_name)
+	return filter_relevant(Client.item_utils.get_equippable_equipment(), purpose_name)
+end
+
+local function populate_gear_list_numerics(gear_list)
+	gear_list.count = {}
+	for _,slot in pairs(resources.slots) do
+		gear_list[slot.id] = gear_list[slot.en]
+		gear_list.count[slot.id] = tcount(gear_list[slot.en])
+	end
+	return gear_list
 end
 
 local function categorize_gear_by_slot(gear_list)
@@ -234,15 +237,6 @@ local function categorize_gear_by_slot(gear_list)
 
 	populate_gear_list_numerics(ret)
 	return ret
-end
-
-local function populate_gear_list_numerics(gear_list)
-	gear_list.count = {}
-	for _,slot in pairs(resources.slots) do
-		gear_list[slot.id] = gear_list[slot.en]
-		gear_list.count[slot.id] = tcount(gear_list[slot.en])
-	end
-	return gear_list
 end
 
 local function filter_per_slot(categorized_gear_list, purpose)
@@ -569,7 +563,7 @@ local function filter_dimensional(gear_list, purpose, done_callback)
 	local total_permutations_estimate = estimate_permutation_size(gear_list)
 	local done_promise = Promise.new()
 	
-	local periodic_permute = function(cur_indices, built_sets, batch_size, count)
+	periodic_permute = function(cur_indices, built_sets, batch_size, count)
 		local s = count
 		local e = count + batch_size
 		for i = s, e-1 do
@@ -754,10 +748,10 @@ end
 
 handle_command = function()
 
+	print("sus")
 	--local p = Promise.new():next(function() print("Promise resolved") end)
 	--coroutine.schedule(function() p:resolve() end, .1)
 	--if true then return end
-
 
 	local relevant_gear = get_relevant_gear("auto_attack") -- TODO: pass a table instead of a name
 	local categorized_gear = categorize_gear_by_slot(relevant_gear)
@@ -819,5 +813,5 @@ av:add(5)
 print(av:get_average())
 ]]
 
---Client.register_event('addon command', handle_command)
+Client.register_event('addon_command', handle_command)
 --Client.register_event("action",function(action) print(action) end)

@@ -323,18 +323,6 @@ function filter_array_in_place(t, predicate)
 	end
 end
 
-function get_equipment_slot_id_of_item(item)
-	if item == nil or item.id == nil or res.items[item.id] == nil or res.items[item.id].slots == nil then return nil end
-	for _, slot in pairs(resources.slots) do
-		if res.items[item.id].slots[slot.id] then return slot.id end
-	end
-	return nil
-end
-
-function get_slot_name_of_item(item)
-	return resources.slots[get_equipment_slot_id_of_item(item)].en
-end
-
 function teq(t1, t2)
 	-- tables equal? (contents, not references)
 	for k,v in pairs(t1) do

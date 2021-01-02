@@ -1,6 +1,9 @@
-require('client_base')
-
+require('util')
 local R = {}
+
+function R.get_player() 
+	return merge_right(windower.ffxi.get_player(), windower.ffxi.get_mob_by_target("me"))
+end
 
 function R.get_dual_wield_level(player)
 	player = player or Client.get_player()

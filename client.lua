@@ -2,9 +2,6 @@ require('client_base')
 
 
 if (windower ~= nil) then
-	Client.item_utils = require("windower_item_utils")
-	Client.player_utils = require('windower_player_utils')
-
 elseif (ashita ~= nil) then
 end
 

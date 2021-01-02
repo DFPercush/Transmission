@@ -1,6 +1,10 @@
-require('client_base')
+local R = {
+	flags = require('flags')
+}
+res = require('resources')
 
-local R = {}
+local job_flags = R.flags.job_flags
+local job_index = R.flags.job_index
 
 function R.get_all_items()
 	local bags = Client.get_items()
@@ -98,7 +102,7 @@ function R.get_equippable_equipment()
 						if res.items[item.id] ~= nil
 						 --and (res.items[item.id].category == "Armor" or res.items[item.id].category == "Weapon")
 						 then
-							if can_equip(item, player) then
+							if R.can_equip(item, player) then
 								--print(res.items[item.id].en)
 								--ret[#ret+1] = item
 								
@@ -143,6 +147,18 @@ function R.dereference_set_ids(categorized_gear_list, indices)
 		ret[slot] = categorized_gear_list[slot][index].id
 	end
 	return ret
+end
+
+function R.get_equipment_slot_id_of_item(item)
+	if item == nil or item.id == nil or res.items[item.id] == nil or res.items[item.id].slots == nil then return nil end
+	for _, slot in pairs(resources.slots) do
+		if res.items[item.id].slots[slot.id] then return slot.id end
+	end
+	return nil
+end
+
+function R.get_slot_name_of_item(item)
+	return resources.slots[get_equipment_slot_id_of_item(item)].en
 end
 
 return R

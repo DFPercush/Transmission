@@ -1,3 +1,5 @@
+-- Here, a purpose means any action (like a spell, ability, or weapon skill),
+--	or state (like auto_attack, idle/movement speed), which can be boosted by gear.
 
 local r = {}
 
@@ -19,7 +21,7 @@ r.auto_attack =
 			
 			function get_slot(slot_name)
 				--local item = gear_list[slot_name][cur_indeces[TM_FLAGS.slot_index[slot_name]+1]]
-				local item = gear_list[slot_name][cur_indices[TM_FLAGS.slot_index[slot_name]]]
+				local item = gear_list[slot_name][cur_indices[Client.item_utils.flags.slot_index[slot_name]]]
 				if (item == nil) then return EMPTY_TABLE end
 				return item
 			end

@@ -72,8 +72,26 @@ slot_flags =
 },
 }
 
+local slots = {
+    [0] = {id=0,en="Main"},
+    [1] = {id=1,en="Sub"},
+    [2] = {id=2,en="Range"},
+    [3] = {id=3,en="Ammo"},
+    [4] = {id=4,en="Head"},
+    [5] = {id=5,en="Body"},
+    [6] = {id=6,en="Hands"},
+    [7] = {id=7,en="Legs"},
+    [8] = {id=8,en="Feet"},
+    [9] = {id=9,en="Neck"},
+    [10] = {id=10,en="Waist"},
+    [11] = {id=11,en="Left Ear"},
+    [12] = {id=12,en="Right Ear"},
+    [13] = {id=13,en="Left Ring"},
+    [14] = {id=14,en="Right Ring"},
+    [15] = {id=15,en="Back"},
+}
 ret.slot_index = {}
-for k,v in pairs(resources.slots) do
+for k,v in pairs(slots) do
 	ret.slot_index[v.id] = v.en
 	ret.slot_index[v.en] = v.id
 end

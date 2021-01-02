@@ -1,5 +1,3 @@
-print("Running events.lua")
-
 local event_system = {
 	registered_events = {},
 	__event_id_count__ = 1,
@@ -16,7 +14,12 @@ local event_system = {
 		'melee_miss_against_player',
 			-- damage: number
 			-- TODO: Additional effects, spikes
-	}
+
+		'addon_command',
+			-- TODO: Accept arguments and stuff for greater control!
+
+		'unload'
+	},
 }
 
 function event_system.register_event(name, callback)
@@ -46,5 +49,18 @@ function event_system.fire(name, params)
 		reg.callback(params)
 	end
 end
+
+
+-- Passthrough
+if (windower ~= nil) then
+	local handler_factories = require('windower_event_layer')
+	for event_name, make_handler in pairs(handler_factories) do
+		local handler_function = make_handler(event_system.fire)
+		windower.register_event(event_name, handler_function)
+	end
+elseif (ashita ~= nil) then
+end
+
+
 
 return event_system
