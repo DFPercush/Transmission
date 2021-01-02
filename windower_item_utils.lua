@@ -137,4 +137,12 @@ function R.can_equip(item, player_optional)
 	return false
 end
 
+function R.dereference_set_ids(categorized_gear_list, indices)
+	local ret = {}
+	for slot,index in indices do
+		ret[slot] = categorized_gear_list[slot][index].id
+	end
+	return ret
+end
+
 return R

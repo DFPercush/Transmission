@@ -1,5 +1,4 @@
-require('client_base')
-require('events')
+local event_system = require('events')
 
 local function from_action(event, target_index, action)
 	local ret = shallow_copy(action)
@@ -24,7 +23,7 @@ windower.register_event('action', function(event)
 	if event.category == 1 then
 		for _,target in pairs(event.targets) do
 			if target.id == player.id then
-				digest.is_melee_attacking_player = true
+				is_melee_attacking_player = true
 				break
 			end
 		end
@@ -44,7 +43,9 @@ windower.register_event('action', function(event)
 				end
 				params = from_action(event, 1, action)
 				params.damage = params.param
-				EventSystem.fire(event_name, params)
+				--print("adfgh")
+				event_system.fire(event_name, params)
+				event_name = ""
 			end
 		end
 	end
@@ -62,10 +63,12 @@ windower.register_event('action', function(event)
 				else event_name = "melee_miss"
 				end
 				params = from_action(event, 1, action)
-				EventSystem.fire(event_name, params)
+				--print("dfjkghsdfjig")
+				event_system.fire(event_name, params)
+				event_name = ""
 			end
 		end
 	end
-end
+end)
 
-return R
+return event_system

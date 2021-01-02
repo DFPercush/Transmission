@@ -37,7 +37,7 @@ local PERMUTE_BATCH_DELAY = 0 -- Seconds
 
 -- Abstraction layer
 require('client')
-
+heuristics_tracker = require('feedback')
 
 -- Client (windower) components
 require('chat')
@@ -802,15 +802,21 @@ handle_command = function()
 	end)
 end
 
+
 --[[
 RA = require("rolling_average")
 local av = RA.new()
-for x=1,50 do
-	av:add_value(100)
-end
-print(av)
-av:add_value(0)
-print(av)
+av:set_capacity(4)
+av:add(100)
+av:add(50)
+av:add(25)
+av:add(0)
+print(av:get_average())
+av:add(2)
+av:add(3)
+av:add(4)
+av:add(5)
+print(av:get_average())
 ]]
 
 --Client.register_event('addon command', handle_command)
