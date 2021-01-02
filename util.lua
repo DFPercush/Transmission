@@ -80,8 +80,8 @@ end
 console_print = print
 function print(msg)
 	msg = tostring(msg)
-	if (msg == "") then return end
 	local L = string.len(msg)
+	if (L <= 0) then return end
 	out = ""
 	for i = 1, L, 1 do
 		if (msg[i] == "\n") then

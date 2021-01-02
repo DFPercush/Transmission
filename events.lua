@@ -21,6 +21,12 @@ local event_system = {
 		'unload'
 	},
 }
+if (windower ~= nil) then
+	local temp = require('windower_event_layer')
+	event_system.handler_factories = temp.handler_factories
+	event_system.event_name_map = temp.event_name_map
+	event_system.bare_registration_function = temp.registration_function
+end
 
 function event_system.register_event(name, callback)
 	event_system.registered_events[name] = event_system.registered_events[name] or {}
@@ -30,6 +36,23 @@ function event_system.register_event(name, callback)
 	reg.callback = callback
 	reg.id = event_system.__event_id_count__
 	event_system.__event_id_count__ = event_system.__event_id_count__ + 1
+	local accounted_for = false
+	for _,event_name in pairs(event_system.list_of_events) do
+		if (name == event_name) then
+			accounted_for = true
+			break
+		end
+	end
+	if (accounted_for) then return reg.id end
+	for name1, name2 in pairs(event_system.event_name_map) do
+		if ((name == name1) or (name == name2)) then
+			accounted_for = true
+			break
+		end
+	end
+	if (accounted_for == false) then
+		event_system.bare_registration_function(name, function(...) event_system.fire(name, {...}) end)
+	end
 	return reg.id
 end
 
@@ -53,8 +76,7 @@ end
 
 -- Passthrough
 if (windower ~= nil) then
-	local handler_factories = require('windower_event_layer')
-	for event_name, make_handler in pairs(handler_factories) do
+	for event_name, make_handler in pairs(event_system.handler_factories) do
 		local handler_function = make_handler(event_system.fire)
 		windower.register_event(event_name, handler_function)
 	end

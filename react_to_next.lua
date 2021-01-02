@@ -4,13 +4,13 @@ local Promise = require("deferred")
 local Err = require("errors")
 
 function react_to_next(event_name, predicate) --, reaction)
-	print("setting up a reaction to the next: " .. event_to_hook)
+	--print("Setting up a reaction to the next: " .. event_name)
 	local t = {}
+	predicate = predicate or function(...) return true end
 	t.promise = Promise.new()
 	t.handle = nil
-	t.reaction_callback = reaction
 	t.react_and_unhook = function(self, event_instance)
-		if predicate(event_instance) == true then
+		if (predicate(event_instance) == true) then
 			--print("Unhooking")
 			Client.unregister_event(self.handle)
 			--print("Entering callback")

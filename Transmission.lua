@@ -100,18 +100,14 @@ end
 
 
 function peep()
+	print("   ---=== Peep ===---   ")
 	local target = Client.get_target()
 	print(target)
 end
 
 
 
---local TEST_COMBINATION_FUNCTION = generate_useful_combinations_v1
---local COMBINATION_FUNCTION = build_gear_continuum
-
-handle_command = function()
-
-	print("sus")
+function build_auto_attack()
 	--local p = Promise.new():next(function() print("Promise resolved") end)
 	--coroutine.schedule(function() p:resolve() end, .1)
 	--if true then return end
@@ -156,5 +152,31 @@ handle_command = function()
 end
 
 
+--local TEST_COMBINATION_FUNCTION = generate_useful_combinations_v1
+--local COMBINATION_FUNCTION = build_gear_continuum
+
+handle_command = function(...)
+	local args = {...}[1]
+	local subcommand = args[1]
+
+	if (subcommand == "buildaa") then build_auto_attack()
+	elseif (subcommand == "checkevents") then print(Client.event_system.registered_events)
+	elseif (subcommand == 'peep') then peep()
+	elseif (subcommand == 'printnext' and (args[2] ~= nil)) then
+		local event_name = args[2]
+		for i=3,#args do
+			event_name = event_name .. " " .. args[i]	
+		end
+		print("Setting up a reaction to the next: " .. event_name)
+		react_to_next(event_name):next(function(...) print({...}) end )
+	elseif ((subcommand == 'r') or (subcommand == 'reload')) then
+		windower.send_command('lua reload Transmission')
+	else
+		print(args)
+	end
+	
+end
+
 Client.register_event('addon_command', handle_command)
 --Client.register_event("action",function(action) print(action) end)
+print("Loaded!")

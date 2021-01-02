@@ -1,12 +1,17 @@
+local R = {}
 local handler_factories = {}
+R.handler_factories = handler_factories
+local event_name_map = {
+--  Transmission     Windower      
+	unload        = 'unload',
+	addon_command = 'addon command',
+}
+R.event_name_map = event_name_map
+R.registration_function = windower.register_event
 
 -- Pass-through events
-for w_name, t_name in pairs({
--- Windower           Transmission
-  ['unload']        = 'unload',
-  ['addon command'] = 'addon_command',
-}) do
-	handler_factories[w_name] = function(fire_callback) return function(event) fire_callback(t_name, event) end end
+for t_name, w_name in pairs(event_name_map) do
+	handler_factories[w_name] = function(fire_callback)	return function(...) fire_callback(t_name, {...}) end end
 end
 
 local function from_action(event, target_index, action)
@@ -84,4 +89,4 @@ function handler_factories.action(fire_callback)
 	end
 end
 
-return handler_factories
+return R
