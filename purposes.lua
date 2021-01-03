@@ -16,7 +16,9 @@ end
 
 r.auto_attack = 
 	{
+		name = "auto_attack",
 		num_of_dimensions = 3, -- Could possibly make this a table that describes the dimensions, and if you want the number, just get the length of the table
+		dimension_names = { "Attack", "Accuracy", "Haste"},
 		apparent_utility = function(gear_list, cur_indices, player_optional)
 			
 			function get_slot(slot_name)

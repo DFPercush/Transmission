@@ -19,6 +19,14 @@ function RA.new()
 		end
 	end
 
+	function ret.fill(self,value)
+		for i=1,self.capacity do
+			self.values[i] = value
+		end
+		self.wrapped = true
+		self.current_index = 1
+	end
+
 	function ret.clear(self, capacity_optional)
 		self.cached_average = nil
 		self.capacity = capacity_optional or 20
@@ -75,6 +83,14 @@ function RA.new()
 		end
 		self.cached_average = sum / count
 		return self.cached_average
+	end
+
+	function ret.get_count(self)
+		if self.wrapped then
+			return capacity
+		else
+			return current_index - 1
+		end
 	end
 
 	return ret

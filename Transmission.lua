@@ -1,3 +1,4 @@
+local purposes = require "purposes"
 --[[
 
 Transmission
@@ -111,7 +112,7 @@ function build_auto_attack()
 	--local p = Promise.new():next(function() print("Promise resolved") end)
 	--coroutine.schedule(function() p:resolve() end, .1)
 	--if true then return end
-
+	local purpose = purposes.auto_attack
 	async_build_gear_continuum('auto_attack'):next(
 		function(result)
 			print(" ------- DING, FRIES ARE DONE -------")
@@ -121,10 +122,20 @@ function build_auto_attack()
 			end
 			-- TODO: Character name, job, level, purpose etc
 			local player = Client.get_player()
-			local base_file_name = "plot_" .. player.name .. "_" .. player.main_job .. player.main_job_level .. player.sub_job .. player.sub_job_level
+			if not Client.system.dir_exists(Client.addon_path .. "gear_continuum_plots") then
+				Client.system.create_dir(Client.addon_path .. "gear_continuum_plots")
+			end
+			local base_file_name = Client.addon_path .. "gear_continuum_plots/" .. player.name .. "_" .. player.main_job .. player.main_job_level .. player.sub_job .. player.sub_job_level .. purpose.name
 			local csv = io.open(base_file_name .. ".csv", "w")
 			local obj = io.open(base_file_name .. ".obj", "w")
+			-- TODO: There may not be 3 dimensions, maybe more, maybe less
+			-- Start a new 3d object
 			obj:write("o " .. base_file_name .. "\n")
+			-- CSV header
+			for d=1,#(purpose.dimension_names) do
+				if d ~= 1 then csv.write(",") end
+				csv.write(purpose.dimension_names[d])
+			end
 			for k,v in pairs(result) do
 				--print(get_gear_set_string(v.gear_list_ref, v.indices) .. " : " .. array_tostring_horizontal(v.apparent_utility_results))
 				local csv_line = ""
