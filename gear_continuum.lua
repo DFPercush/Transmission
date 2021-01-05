@@ -11,6 +11,15 @@ local Promise = require("deferred")
 
 
 local function filter_relevant(equipment_list, purpose_name)
+
+	--print("filter_relevant(equipment_list[" .. #equipment_list .. "], purpose_name = '" .. purpose_name .. "')")
+	--print(Client.resources.items[equipment_list[1].id].slots)
+	--for _,item in pairs(equipment_list) do
+	--	if Client.resources.items[item.id].slots[0] then
+	--		print("filter_relevant BEFORE: " .. Client.resources.items[item.id].en)
+	--	end
+	--end
+
 	local ret = {}
 	local has = false
 	local relevant_stats
@@ -33,8 +42,10 @@ local function filter_relevant(equipment_list, purpose_name)
 	for _, n in pairs({1,2,3,4,5,6,7,8,9,10,15}) do quantity_limits[n] = 1 end
 	
 	local good_item = false
+	local item_name
 	for _, item in pairs(equipment_list) do
 		has = false
+		item_name = Client.resources.items[item.id].en
 		for _, mod_text in pairs(relevant_stats) do
 			--Schema: Client.item_utils.item_mods[id][modIndex] = value
 			--local mod_id = modifiers[mod_text]
@@ -57,12 +68,24 @@ local function filter_relevant(equipment_list, purpose_name)
 						local nextIndex = #ret+1
 						ret[nextIndex] = shallow_copy(item)
 						has = true
+						--print(item_name .. " has " .. mod_text)
 					end
 					break
 				end
+			else
+				
 			end
 		end
+		--if not has then print(item_name .. " is not relevant") end
 	end
+
+	--for _,item in pairs(ret) do
+	--	if Client.resources.items[item.id].slots[0] then
+	--		print("filter_relevant AFTER: " .. Client.resources.items[item.id].en)
+	--	end
+	--end
+
+
 	-- We now have a list of all equipment that has anything to do with purpose.
 	return ret
 end
@@ -153,7 +176,7 @@ local function filter_per_slot(categorized_gear_list, purpose)
 	local player = Client.get_player()
 	local ret = {}
 	local slot_name
-	--print("BEFORE: " .. tostring(categorized_gear_list["Main"]))
+	--print("Per-slot BEFORE: " .. tostring(categorized_gear_list["Main"]))
 	ret.Main = categorized_gear_list.Main
 	ret.Sub = categorized_gear_list.Sub
 	ret["Left Ear"] = categorized_gear_list["Left Ear"]
@@ -227,7 +250,7 @@ local function filter_per_slot(categorized_gear_list, purpose)
 		ret[resources.slots[iSlot].en] = filtered_slot
 	end
 
-	--print("AFTER: " .. tostring(ret["Main"]))
+	--print("Per-slot AFTER: " .. tostring(ret["Main"]))
 	populate_gear_list_numerics(ret)
 	return ret
 end
@@ -532,11 +555,13 @@ function get_gear_set_string(gear_list, cur_indices)
 	local ret = "[["
 	local item
 	for i = 0, 15 do
-		item = gear_list[i][cur_indices[i]]
-		if item == nil then ret = ret .. ""
-		else ret = ret .. resources.items[item.id].en
-		end
 		if i > 0 then ret = ret .. ", " end
+		item = gear_list[i][cur_indices[i]]
+		if item == nil then
+			ret = ret .. "(empty)"
+		else
+			ret = ret .. resources.items[item.id].en
+		end
 	end
 	ret = ret .. "]]"
 	return ret

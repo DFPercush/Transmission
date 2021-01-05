@@ -6,6 +6,8 @@ local event_system = {
 		--	actor_id
 		--	target_id
 
+		'melee_swing',
+		'melee_swing_by_player',
 		'melee_hit',
 		'melee_hit_by_player',
 		'melee_hit_against_player',
@@ -68,6 +70,7 @@ end
 
 function event_system.fire(name, params)
 	if event_system.registered_events[name] == nil then return end
+	params.event_name = name
 	for _, reg in pairs(event_system.registered_events[name]) do
 		reg.callback(params)
 	end

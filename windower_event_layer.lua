@@ -25,6 +25,7 @@ local get_player = require('windower_player_utils').get_player
 
 function handler_factories.action(fire_callback)
 	return function(event)
+		if true then return end
 		--local digest = {event = event}
 		local player = get_player()
 
@@ -63,6 +64,11 @@ function handler_factories.action(fire_callback)
 					--print("adfgh")
 					fire_callback(event_name, params)
 					event_name = ""
+					if is_melee_from_player then
+						fire_callback("melee_swing_by_player", params)
+					else
+						fire_callback("melee_swing", params)
+					end
 				end
 			end
 		end
@@ -83,6 +89,11 @@ function handler_factories.action(fire_callback)
 					--print("dfjkghsdfjig")
 					fire_callback(event_name, params)
 					event_name = ""
+					if is_melee_from_player then
+						fire_callback("melee_swing_by_player", params)
+					else
+						fire_callback("melee_swing", params)
+					end
 				end
 			end
 		end

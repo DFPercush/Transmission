@@ -33,6 +33,8 @@
 
 . certain weapons can not be dual wielded / sub slot
 
+. Tilde items e.g. Rajas ring
+
 --------------------------
 Skree
 

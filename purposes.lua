@@ -1,6 +1,8 @@
 -- Here, a purpose means any action (like a spell, ability, or weapon skill),
 --	or state (like auto_attack, idle/movement speed), which can be boosted by gear.
 
+local get_modifier_by_alias = require("modifier_aliases")
+local modifiers = require("modifiers")
 local r = {}
 
 local EMPTY_TABLE = {}
@@ -12,6 +14,25 @@ local function calc_total_mods(gear_list, indices)
 	end
 	Client.item_utils.apply_set_mods_by_index(r, gear_list, indices)
 	return r
+end
+
+function r.atomic_stat(alias)
+	local atom = {}
+	local mod_name = get_modifier_by_alias(alias)
+	local mod_id = Client.item_utils.get_modifier_id(mod_name)
+	if mod_id == nil then return {} end
+
+	atom.name = mod_name
+	atom.num_of_dimensions = 1
+	atom.dimension_names = { mod_name }
+	function atom.apparent_utility(gear_list, cur_indices, player_optional)
+		local player = player_optional or Client.get_player()
+		local total = calc_total_mods(gear_list, cur_indices)
+		return modifiers[mod_id]
+	end
+	atom.relevant_modifiers = { mod_name }
+	atom.want_negative = {}
+	return atom
 end
 
 r.auto_attack = 

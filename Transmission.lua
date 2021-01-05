@@ -60,7 +60,7 @@ end)
 
 -- This addon
 require('util')
-require('feedback')
+--require('heuristics')
 require('generate_useful_combinations_v1')
 --local slot_flags = flags.slot_flags
 require("modifier_aliases")
@@ -69,6 +69,8 @@ require("react_to_next")
 local Err = require("errors")
 
 require('gear_continuum')
+
+require('select_gear')
 
 
 
@@ -113,7 +115,7 @@ function build_auto_attack()
 	--coroutine.schedule(function() p:resolve() end, .1)
 	--if true then return end
 	local purpose = purposes.auto_attack
-	async_build_gear_continuum('auto_attack'):next(
+	return async_build_gear_continuum('auto_attack'):next(
 		function(result)
 			print(" ------- DING, FRIES ARE DONE -------")
 			print("result is a " .. type(result)) -- .. " : " .. tostring(result))
@@ -133,8 +135,8 @@ function build_auto_attack()
 			obj:write("o " .. base_file_name .. "\n")
 			-- CSV header
 			for d=1,#(purpose.dimension_names) do
-				if d ~= 1 then csv.write(",") end
-				csv.write(purpose.dimension_names[d])
+				if d ~= 1 then csv:write(",") end
+				csv:write(purpose.dimension_names[d])
 			end
 			for k,v in pairs(result) do
 				--print(get_gear_set_string(v.gear_list_ref, v.indices) .. " : " .. array_tostring_horizontal(v.apparent_utility_results))
@@ -155,7 +157,7 @@ function build_auto_attack()
 			end
 			obj:close()
 			csv:close()
-			return "Finished output"
+			return result
 		end
 	):catch(function (why)
 		error("Calculation interrupted: " .. tostring(why))
@@ -183,10 +185,14 @@ handle_command = function(...)
 	elseif ((subcommand == 'r') or (subcommand == 'reload')) then
 		windower.send_command('lua reload Transmission')
 	else
-		print(args)
+		print(...)
 	end
 	
 end
+
+--Client.register_event('melee_swing', function (...)
+--	print("hello I work")
+--end )
 
 Client.register_event('addon_command', handle_command)
 --Client.register_event("action",function(action) print(action) end)

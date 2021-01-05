@@ -1,4 +1,5 @@
 require('util')
+local windower_player_utils = require "windower_player_utils"
 
 local R = {
 	flags = require('flags')
@@ -188,20 +189,14 @@ R.get_modifier_by_alias = create_get_modifier_by_alias(R.modifiers) -- State cap
 -- cat item_mods.sql | sed s/[^0-9\\-]*\\\([0-9]*\\\),\\\([0-9]*\\\),\\\([0-9-]*\\\).*/\{item_id=\\1,mod=\\2,value=\\3\},/ > item_mods_data.lua
 local item_mods_data = require("item_mods_data")
 
-R.item_mods = {}
-	-- convert relational database data to tables
-	-- item_mods[item_id][mod_index] = amount
-	for _,mod in pairs(item_mods_data) do
-		R.item_mods[mod.item_id] = R.item_mods[mod.item_id] or {}
-		R.item_mods[mod.item_id][mod.mod] = mod.value
-	end
 
 
 
 -- SELECT itemId,dmg,delay FROM item_weapon;
 -- cat weapon_dmg_delay.csv | sed s/\\\([0-9]*\\\),\\\([0-9]*\\\),\\\([0-9]*\\\)/\\\{item_id=\\1,dmg=\\2,delay=\\3\\\},/ > weapon_dmg_delay.lua
 local weapon_dmg_delay = require("weapon_dmg_delay")
-
+--print("Adding weapon damage/delay to item mods")
+--windower.add_to_chat(0, "Adding weapon damage/delay to item mods")
 for _,weapon_info in pairs(weapon_dmg_delay) do
 	if forcenumber(weapon_info.dmg) ~= 0 then
 		item_mods_data[#item_mods_data+1] = {
@@ -216,6 +211,14 @@ for _,weapon_info in pairs(weapon_dmg_delay) do
 		}
 	end
 end
+
+R.item_mods = {}
+	-- convert relational database data to tables
+	-- item_mods[item_id][mod_index] = amount
+	for _,mod in pairs(item_mods_data) do
+		R.item_mods[mod.item_id] = R.item_mods[mod.item_id] or {}
+		R.item_mods[mod.item_id][mod.mod] = mod.value
+	end
 
 item_mods_data = nil
 

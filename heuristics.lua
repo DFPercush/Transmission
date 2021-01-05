@@ -27,6 +27,16 @@ end
 
 -------------------------------------------------------------------------------------------------
 
+function heuristics_system.get_vs_string(player, mob)
+	return player.name .. " " .. player.main_job .. player.main_job_level .. player.sub_job .. player.sub_job_level .. " " .. mob.name
+end
+
+function heuristics_system.get_table(player, mob)
+
+end
+
+-------------------------------------------------------------------------------------------------
+
 function heuristics_system.event_registry.melee_hit_by_player.callback(params)
 	--local mob_name = params.something_or_antoher
 	heuristics_system.test_acc:add(100)
