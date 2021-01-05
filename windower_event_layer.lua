@@ -25,7 +25,31 @@ local get_player = require('windower_player_utils').get_player
 
 function handler_factories.action(fire_callback)
 	return function(event)
-		if true then return end
+		local known_cat = {
+			[0]  = "none" -- ????
+			[1]  = "melee_attack",
+			[2]  = "ranged_finish",
+			[3]  = "weapon_finish",
+			[4]  = "spell_finish", -- occurs when someone gets up from a raise as well
+			[5]  = "item_finish"
+			[6]  = "job_ability_finish", -- Provoke, composure
+			[7]  = "ability_ready", -- mob skill, weapon skill
+			[8]  = "magic_casting_start",
+			[9]  = "item_use_start",
+			-- TODO: What's 10?
+			[11] = "mob_ability_use", -- Happens when automaton uses ranged atack too
+			[12] = "ranged_start",
+			[13] = "pet_ability_use",
+			[14] = "dance", -- Dance...?
+		}
+		for id_number, cat_name in pairs(known_cat) do
+			if (event.category == id_number) then
+				--print(id_number .. " : " .. cat_name)
+				--return
+			end
+		end
+		print(event.category .. " : Unknown category")
+		--if true then return end
 		--local digest = {event = event}
 		local player = get_player()
 
