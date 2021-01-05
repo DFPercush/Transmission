@@ -25,18 +25,20 @@ local event_system = {
 }
 if (windower ~= nil) then
 	local temp = require('windower_event_layer')
+	event_system.predicates = temp.event_predicates
 	event_system.handler_factories = temp.handler_factories
 	event_system.event_name_map = temp.event_name_map
 	event_system.bare_registration_function = temp.registration_function
 end
 
-function event_system.register_event(name, callback)
+function event_system.register_event(name, callback, opt_predicate)
 	event_system.registered_events[name] = event_system.registered_events[name] or {}
 	local new_index = #(event_system.registered_events[name]) + 1
 	local reg = {}
 	event_system.registered_events[name][new_index] = reg
 	reg.callback = callback
 	reg.id = event_system.__event_id_count__
+	if (opt_predicate == nil) then reg.predicate = function() return true end else reg.predicate = opt_predicate end
 	event_system.__event_id_count__ = event_system.__event_id_count__ + 1
 	local accounted_for = false
 	for _,event_name in pairs(event_system.list_of_events) do
@@ -72,7 +74,9 @@ function event_system.fire(name, params)
 	if event_system.registered_events[name] == nil then return end
 	params.event_name = name
 	for _, reg in pairs(event_system.registered_events[name]) do
-		reg.callback(params)
+		if (reg.predicate(params) == true) then
+			reg.callback(params)
+		end
 	end
 end
 

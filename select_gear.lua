@@ -48,6 +48,7 @@ end
 
 
 Client.register_event('melee_swing_by_player', function (...)
+	if true then return end
 	--if events_since_last_change.melee_swing_by_player < gear_change_cooldown_event_counts.melee_swing_by_player then return end
 	--gear_change_cooldown_event_counts.melee_swing_by_player = 0
 

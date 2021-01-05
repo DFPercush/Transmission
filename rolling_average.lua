@@ -2,14 +2,14 @@
 local RA = {}
 
 function RA.new()
-	local ret = {
+	local self = {
 		cached_average = nil,
 		capacity = 20,
 		current_index = 1,
 		wrapped = false,
 		values = {},
 	}
-	function ret.add(self, value)
+	function self.add(value)
 		self.cached_average = nil
 		self.values[self.current_index] = value
 		self.current_index = self.current_index + 1
@@ -19,7 +19,7 @@ function RA.new()
 		end
 	end
 
-	function ret.fill(self,value)
+	function self.fill(value)
 		for i=1,self.capacity do
 			self.values[i] = value
 		end
@@ -27,7 +27,7 @@ function RA.new()
 		self.current_index = 1
 	end
 
-	function ret.clear(self, capacity_optional)
+	function self.clear(capacity_optional)
 		self.cached_average = nil
 		self.capacity = capacity_optional or 20
 		self.current_index = 1
@@ -35,7 +35,7 @@ function RA.new()
 		self.values = {}
 	end
 
-	function ret.set_capacity(self, new_capacity)
+	function self.set_capacity(new_capacity)
 		self.cached_average = nil
 		local new_values = {}
 		local count = 0
@@ -68,7 +68,7 @@ function RA.new()
 		end
 	end
 
-	function ret.get_average(self)
+	function self.get_average()
 		local sum = 0
 		local count
 		if (self.cached_average ~= nil) then return self.cached_average end
@@ -85,7 +85,7 @@ function RA.new()
 		return self.cached_average
 	end
 
-	function ret.get_count(self)
+	function self.get_count()
 		if self.wrapped then
 			return capacity
 		else
@@ -93,7 +93,7 @@ function RA.new()
 		end
 	end
 
-	return ret
+	return self
 end
 
 return RA
