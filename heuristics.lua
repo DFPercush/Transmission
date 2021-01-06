@@ -17,16 +17,16 @@ local heuristics_system = {
 	--mob = {}, -- IDs
 
 	event_system = require("events"),
-	event_registry = {}
+	event_registry = {},
 }
 --heuristics_system.test_acc = RollAvg.new()
 --heuristics_system.test_acc.set_capacity(100)
 --heuristics_system.test_dmg = RollAvg.new()
 --heuristics_system.test_dmg.set_capacity(100)
 
-for _, event_name in pairs(heuristics_system.event_system.list_of_events) do
-	heuristics_system.event_registry[event_name] = {}
-end
+--for _, event_name in pairs(heuristics_system.event_system.list_of_events) do
+--	heuristics_system.event_registry[event_name] = {}
+--end
 
 -------------------------------------------------------------------------------------------------
 
@@ -68,26 +68,33 @@ function heuristics_system.cur() --player, mob)
 end
 
 -------------------------------------------------------------------------------------------------
+local predicates = heuristics_system.event_system.predicates
+print("predicates: " .. type(predicates))
+local registry = heuristics_system.event_registry
 
-function heuristics_system.event_registry.melee_hit_by_player.callback(params)
-	--local mob_name = params.something_or_antoher
-	--print("melee_hit_by_player")
-	heuristics_system.cur().acc.add(100)
-	heuristics_system.cur().dmg.add(params.damage)
-	print(round(heuristics_system.cur().dmg.get_average()) .. " Damage per hit @ " .. round(heuristics_system.cur().acc.get_average()) .. "% Accuracy")
-end
-
-function heuristics_system.event_registry.melee_miss_by_player.callback(params)
-	--print("melee_miss_by_player")
-	heuristics_system.cur().acc.add(0)
-	print(round(heuristics_system.cur().dmg.get_average()) .. " Damage per hit @ " .. round(heuristics_system.cur().acc.get_average()) .. "% Accuracy")
-end
+registry.melee_swing_by_player = {
+	event_name = "action_attack",
+	predicate = function(event)
+		return (predicates.is_melee_swing(event) and predicates.is_player_action(event))
+	end,
+	callback = function(event)
+		--local mob_name = event.something_or_antoher
+		--print("melee_hit_by_player")
+		if predicates.is_melee_hit(event) then
+			heuristics_system.cur().acc.add(1)
+			heuristics_system.cur().dmg.add(event.damage)
+		elseif predicates.is_melee_miss(event) then
+			heuristics_system.cur().acc.add(0)
+		end
+		print(round(heuristics_system.cur().dmg.get_average()) .. " Damage per hit @ " .. round(heuristics_system.cur().acc.get_average() * 100) .. "% Accuracy")
+	end
+}
 
 -------------------------------------------------------------------------------------------------
 
-for event_name, t in pairs(heuristics_system.event_registry) do
+for _, t in pairs(heuristics_system.event_registry) do
 	if (t.callback ~= nil) then
-		t.id = heuristics_system.event_system.register_event(event_name, t.callback)
+		t.id = heuristics_system.event_system.register_event(t.event_name, t.callback, t.predicate)
 	end
 end
 

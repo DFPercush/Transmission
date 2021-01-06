@@ -10,6 +10,9 @@ function RA.new()
 		values = {},
 	}
 	function self.add(value)
+		if type(value) ~= "number" then
+			error("Trying to add a non-number to average: (" .. type(value) .. ") " .. tostring(value))
+		end
 		self.cached_average = nil
 		self.values[self.current_index] = value
 		self.current_index = self.current_index + 1

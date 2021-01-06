@@ -1,4 +1,5 @@
 local purposes = require "purposes"
+local rolling_average = require "rolling_average"
 --[[
 
 Transmission
@@ -196,4 +197,18 @@ end
 
 Client.register_event('addon_command', handle_command)
 --Client.register_event("action",function(action) print(action) end)
+
+--[[
+print("ravg test")
+local RollAvg = require("rolling_average")
+local ra = RollAvg.new()
+print(ra.get_average())
+ra.set_capacity(4)
+for x = 1,15 do
+	ra.add(x)
+	print(x .. " : " .. ra.get_average())
+end
+]]
+
+
 print("Loaded!")
