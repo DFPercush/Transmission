@@ -194,7 +194,7 @@ local function filter_per_slot(categorized_gear_list, purpose)
 			test_indices[iSlot] = iItem
 			add_and_filter_set_combination(test_results, purpose, 
 			{
-				gear_list_ref = categorized_gear_list,
+				categorized_gear_list = categorized_gear_list,
 				purpose_checked_against = purpose,
 				indices = test_indices,
 				apparent_utility_results = purpose.apparent_utility(categorized_gear_list, test_indices, player),
@@ -227,7 +227,7 @@ local function filter_per_slot(categorized_gear_list, purpose)
 					test_indices[iSlot] = iItem
 					add_and_filter_set_combination(test_results, purpose, 
 					{
-						gear_list_ref = categorized_gear_list,
+						categorized_gear_list = categorized_gear_list,
 						purpose_checked_against = purpose,
 						indices = test_indices,
 						apparent_utility_results = purpose.apparent_utility(categorized_gear_list, test_indices, player),
@@ -571,10 +571,39 @@ end
 
 
 
+function construct_dereferencer(set_struct)
+	return function ()
+		local r = {}
+		for sloti, index_into_gear_list in pairs(set_struct.indices) do
+			--print("r[" .. sloti .. "] = " .. Client.item_utils.get_item_name(set_struct.categorized_gear_list[sloti][index_into_gear_list]))
+			r[sloti] = set_struct.categorized_gear_list[sloti][index_into_gear_list]
+		end
+		return r
+	end
+end
+
+
+
+
+
 --local function build_gear_continuum(gear_list, purpose_name, done_callback)
 function async_build_gear_continuum(purpose_name, done_callback)
 	local purpose = PURPOSES[purpose_name]
 	local categorized_gear_list = filter_per_slot(categorize_gear_by_slot(get_relevant_gear(purpose_name)), purpose) -- TODO: pass a table instead of a name
+	local count_nil_storage = 0
+	local count_valid_storage = 0
+	----print(categorized_gear_list[1][1])
+	--for sloti = 0,15 do --, slot_data in pairs(categorized_gear_list) do
+	--	for i, item in pairs(categorized_gear_list[sloti]) do
+	--		print("ITEM " .. i)
+	--		print(item)
+	--		if item.storage == nil then count_nil_storage = count_nil_storage + 1
+	--		else count_valid_storage = count_valid_storage + 1
+	--		end
+	--	end
+	--end
+	--print("Storage set for items: " .. count_valid_storage .. " valid, " .. count_nil_storage .. " nil")
+
 
 	-- Schema:
 	-- categorized_gear_list[slot name][1~n] = an item
@@ -598,11 +627,12 @@ function async_build_gear_continuum(purpose_name, done_callback)
 		for i = s, e-1 do
 			local next_element = {
 			--built_sets[#built_sets+1] = {
-				categorized_gear_list_ref = categorized_gear_list,
+				categorized_gear_list = categorized_gear_list,
 				purpose_checked_against = purpose,
 				apparent_utility_results = purpose.apparent_utility(categorized_gear_list, cur_indices, player), -- Main evaluation for the purpose in question.
 				indices = shallow_copy(cur_indices)
 			}
+			next_element.dereference = construct_dereferencer(next_element)
 			add_and_filter_set_combination(built_sets, purpose, next_element)
 			count = count + 1
 			

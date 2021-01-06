@@ -26,7 +26,7 @@ end
 function select_gear(temp_auto_attack_sets)
 	-- Select point on accuracy axis closest to the inverse percentage of accuracy rate
 	-- Agnostic to all other axis values (for now)
-	local normalized_inverse_acc_percentage = (Client.heuristics_system.test_acc:get_average() / 100.0)
+	local normalized_inverse_acc_percentage = (Client.heuristics_system.cur().acc:get_average() / 100.0)
 	local highest_acc = 0.00001
 	local accuracy_selector = 2
 	for _,set in pairs(temp_auto_attack_sets) do
@@ -42,13 +42,15 @@ function select_gear(temp_auto_attack_sets)
 			set_with_acc_closest_to_inverse = set
 		end
 	end
-	print("EQUIP DIS: ")
-	print(get_gear_set_string(set_with_acc_closest_to_inverse.categorized_gear_list_ref, set_with_acc_closest_to_inverse.indices))
+	--print("EQUIP DIS: ")
+	--print(get_gear_set_string(set_with_acc_closest_to_inverse.categorized_gear_list, set_with_acc_closest_to_inverse.indices))
+	--print("Trying to equip a thing")
+	Client.equip_set(set_with_acc_closest_to_inverse)
 end
 
-
-Client.register_event('melee_swing_by_player', function (...)
-	if true then return end
+local predicates = Client.event_system.predicates
+Client.register_event('action_attack', function (...)
+	--if true then return end
 	--if events_since_last_change.melee_swing_by_player < gear_change_cooldown_event_counts.melee_swing_by_player then return end
 	--gear_change_cooldown_event_counts.melee_swing_by_player = 0
 
@@ -62,16 +64,4 @@ Client.register_event('melee_swing_by_player', function (...)
 		select_gear(temp_auto_attack_sets)
 	end
 	
-end)
-
-
---[[
-	
-			local next_element = {
-			--built_sets[#built_sets+1] = {
-				categorized_gear_list_ref = categorized_gear_list,
-				purpose_checked_against = purpose,
-				apparent_utility_results = purpose.apparent_utility(categorized_gear_list, cur_indices, player), -- Main evaluation for the purpose in question.
-				indices = shallow_copy(cur_indices)
-			}
-]]
+end, predicates.is_player_action)

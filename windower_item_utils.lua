@@ -6,6 +6,28 @@ local R = {
 }
 res = require('resources')
 
+R.bag_double_map = {}
+for k, v in pairs(res.bags) do
+	R.bag_double_map[v.id] = v.en
+	local strings = {v.en, string.lower(v.en), string.upper(v.en)}
+	for _, str in pairs(strings) do
+		R.bag_double_map[str] = v.id
+		local spaceless = ""
+		local with_underscore = ""
+		for i=0,#str do
+			local char = string.sub(str, i, i)
+			if (char == " ") then
+				with_underscore = with_underscore .. "_"
+			else
+				spaceless = spaceless .. char
+				with_underscore = with_underscore .. char
+			end
+		end
+		R.bag_double_map[spaceless] = v.id
+		R.bag_double_map[with_underscore] = v.id
+	end
+end
+
 local job_flags = R.flags.job_flags
 local job_index = R.flags.job_index
 
@@ -252,6 +274,18 @@ end
 
 function R.get_modifier_id(alias)
 	return R.modifiers[R.get_modifier_by_alias(alias)]
+end
+
+function R.get_item_name(item)
+	local item_id
+	if type(item) == "number" then
+		item_id = item
+	elseif (item ~= nil and item.id ~= nil) then
+		item_id = item.id
+	else
+		return "?"
+	end
+	return res.items[item_id].en
 end
 
 return R

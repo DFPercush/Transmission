@@ -48,7 +48,7 @@ function generate_useful_combinations_v1(gear_list, purpose, callback)
 			-- Store the utility results and a way to reference the gear set it's looking at
 			-- TODO: +? convert code that expects built_set[dimension] to built_sets.apparent_utility_results[dimension]
 			built_sets[#built_sets+1] = {
-				gear_list_ref = gear_list,
+				categorized_gear_list = gear_list,
 				purpose_checked_against = purpose,
 				apparent_utility_results = purpose.apparent_utility(gear_list, cur_indices, player), -- Main evaluation for the purpose in question.
 				indices = shallow_copy(cur_indices)

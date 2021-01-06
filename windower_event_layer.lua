@@ -1,8 +1,8 @@
 local R = {}
-local preds = require("windower_event_predicates")
+local predicates = require("windower_event_predicates")
 local utils = {}
 R.utils = utils
-R.event_predicates = preds
+R.event_predicates = predicates
 local handler_factories = {}
 R.handler_factories = handler_factories
 local event_name_map = {
@@ -103,6 +103,7 @@ local translation_functions = {
 		action_attack = function(event)
 			--print("Translating melee attack damage: " .. tostring(event.param))
 			event.damage = event.param
+			event.is_hit = predicates.is_melee_hit(event)
 		end
 	}
 }

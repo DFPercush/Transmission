@@ -140,7 +140,7 @@ function build_auto_attack()
 				csv:write(purpose.dimension_names[d])
 			end
 			for k,v in pairs(result) do
-				--print(get_gear_set_string(v.gear_list_ref, v.indices) .. " : " .. array_tostring_horizontal(v.apparent_utility_results))
+				--print(get_gear_set_string(v.categorized_gear_list, v.indices) .. " : " .. array_tostring_horizontal(v.apparent_utility_results))
 				local csv_line = ""
 				local obj_line = "v "
 				for iCoord = 1,#(v.apparent_utility_results) do

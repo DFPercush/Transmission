@@ -69,7 +69,6 @@ end
 
 -------------------------------------------------------------------------------------------------
 local predicates = heuristics_system.event_system.predicates
-print("predicates: " .. type(predicates))
 local registry = heuristics_system.event_registry
 
 registry.melee_swing_by_player = {

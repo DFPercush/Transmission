@@ -35,6 +35,9 @@
 
 . Tilde items e.g. Rajas ring
 
+theoretical DPS = accuracy * swing_damage * number_of_swings / delay
+
+
 --------------------------
 Skree
 
