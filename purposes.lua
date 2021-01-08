@@ -16,6 +16,7 @@ local function calc_total_mods(gear_list, indices)
 	return r
 end
 
+-- Things like STR, DEX, atk, etc.
 function r.atomic_stat(alias)
 	local atom = {}
 	local mod_name = get_modifier_by_alias(alias)
@@ -29,6 +30,18 @@ function r.atomic_stat(alias)
 		local player = player_optional or Client.get_player()
 		local total = calc_total_mods(gear_list, cur_indices)
 		return modifiers[mod_id]
+	end
+	function atom.select(set_list)
+		local max_value = 0
+		local ret
+		for _,set in pairs(set_list) do
+			local value = calc_total_mods(set.categorized_gear_list, set.indices)
+			if (value > max_value) then
+				ret = set
+				max_value = value
+			end
+		end
+		return ret
 	end
 	atom.relevant_modifiers = { mod_name }
 	atom.want_negative = {}

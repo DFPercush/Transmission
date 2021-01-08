@@ -37,9 +37,22 @@
 
 theoretical DPS = accuracy * swing_damage * number_of_swings / delay
 
+Initialize to middle of the pareto front
+use events to instantiate / activate a purpose
+	e.g. use status_change to engaged to trigger the auto_attack purpose, or maybe "build tp"
 
 --------------------------
 Skree
+
+● Reactionary equip change cooldown timers
+	i.e. if there's no data on a mob, let the system make changes rapidly and learn a lot of information about the mob
+	or, if perf is poor, bring the cooldown way down and experiment quickly to find something that improves perf
+	if, when the cooldown ends and we check to see what set we should be using, it's the same set we have on (no change required), then increse the cooldown timer
+	But if we suddenly start getting a lot of bad perf, we should probably bypass the cooldown timer (heuristics passes a critical low threshold) and reset it to 0
+
+● If you miss consecutive times, make the tradeoffs for each successive miss more severe
+
+● When we get an event that'd affect heuristics, determine if the data is "bad" or "good" i.e. don't count dodges from Perfect Dodge or shadows or 0 damage from Invincible as actual misses
 
 ● HOW DO I ACCESSED AUGMENT
 
