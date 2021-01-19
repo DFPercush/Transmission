@@ -288,4 +288,59 @@ function R.get_item_name(item)
 	return res.items[item_id].en
 end
 
+-- TODO: I don't think there's anything windower specific in this one.
+--		Maybe have a generic_item_utils.lua and do a table merge into Client.item_utils
+function R.calc_total_mods(gear_list, indices)
+	local total_mods = {}
+	function total_mods.by_name(alias, default_value)
+		return total_mods[R.get_modifier_id(alias)] or default_value or 0
+	end
+	R.apply_set_mods_by_index(total_mods, gear_list, indices)
+	return total_mods
+end
+
+function R.create_indexed_set(categorized_gear_list_param, indices_param, purpose_checked_against_param, apparent_utility_results_param)
+	local indexed_set =
+	{
+		categorized_gear_list = categorized_gear_list_param,
+		purpose_checked_against = purpose_checked_against_param,
+		apparent_utility_results = apparent_utility_results_param,
+		indices = indices_param,
+	}
+
+	-- pre-calculate the total modifiers
+	indexed_set.total_mods = Client.item_utils.calc_total_mods(categorized_gear_list_param, indices_param)
+
+	-- dereference() returns a table of { [slot_id] = {item} }
+	indexed_set.dereference = function()
+		local dereferenced_set = {}
+		for sloti, index_into_gear_list in pairs(indexed_set.indices) do
+			--print("r[" .. sloti .. "] = " .. Client.item_utils.get_item_name(set_struct.categorized_gear_list[sloti][index_into_gear_list]))
+			dereferenced_set[sloti] = indexed_set.categorized_gear_list[sloti][index_into_gear_list]
+		end
+		return dereferenced_set
+	end
+
+	-- get_slot_item() returns the item, notably including .id
+	function indexed_set.get_slot_item(slot_name)
+		local item
+		pcall(function()
+			item = indexed_set.categorized_gear_list[slot_name][indexed_set.indices[Client.item_utils.flags.slot_index[slot_name]]]
+		end)
+		if (item == nil or item.id == nil) then return {} end
+		return item
+	end
+
+	-- get_slot_res() returns the windower resource for the item in a particular slot
+	function indexed_set.get_slot_res(slot_name)
+		local item
+		pcall(function()
+			item = indexed_set.categorized_gear_list[slot_name][indexed_set.indices[Client.item_utils.flags.slot_index[slot_name]]]
+		end)
+		if (item == nil or item.id == nil) then return {} end
+		return resources.items[item.id] or {}
+	end
+	return indexed_set
+end
+
 return R

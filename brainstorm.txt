@@ -8,11 +8,14 @@
 			when you have multiple goods in the prev round, see if it increases the stat from the minimum of them.
 			Silver_Skree: The next point needs to have AN axis value that's better than the combined minimums of all the last good points
 
-. Rings and Earrings are slot-flagged for only the left
++ Rings and Earrings are slot-flagged for only the left
 	. minimum item id goes in left slot to avoid duplicates of just left-right swapped sets
 	. if you only have one ring, since cur starts at {1,1,1...} it thinks they are equal.
 		need to consider empty slot
-. also weapons if dual wielding
++ also weapons if dual wielding
+
+. Highest damage weapon should go in main hand when dual wielding
+	. sort weapons list by damage in descending order before building set list
 
 / handle restricted slots
 
@@ -27,9 +30,11 @@
 
 . Add a member gear_list:resource(slot) and maybe other info (weapon damage?)
 	(to avoid having inner functions in every purpose utility)
+	points to windower resource for that item
 
-. filter duplicate gear from relevant_gear except rings, earrings, weapons
++ filter duplicate gear from relevant_gear except rings, earrings, weapons
 	e.g. stacks of arrows
+	I think this is being done by nature of the per-slot filter step, if it's not an improvement it won't be added.
 
 . certain weapons can not be dual wielded / sub slot
 
@@ -40,6 +45,19 @@ theoretical DPS = accuracy * swing_damage * number_of_swings / delay
 Initialize to middle of the pareto front
 use events to instantiate / activate a purpose
 	e.g. use status_change to engaged to trigger the auto_attack purpose, or maybe "build tp"
+
+precast is fast cast
+mid cast is int, mab, macc etc
+
+. "On (day):" example Ice Ring (from Shiva)
+  "(x weather):" yadda yadda
+
+
+acc1 - eva = hit%1
+acc_target - eva = .94
+hit% = clamp(  0.75 + (acc - eva)/2  ,  0.2, 0.95)
+
+TODO: .en --> [LOCALE]
 
 --------------------------
 Skree
@@ -53,6 +71,7 @@ Skree
 ● If you miss consecutive times, make the tradeoffs for each successive miss more severe
 
 ● When we get an event that'd affect heuristics, determine if the data is "bad" or "good" i.e. don't count dodges from Perfect Dodge or shadows or 0 damage from Invincible as actual misses
+	Dan: A zero-damage hit will still be recognized as a hit based on the message, but perfect dodge status may need to be special cased
 
 ● HOW DO I ACCESSED AUGMENT
 

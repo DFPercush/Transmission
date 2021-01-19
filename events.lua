@@ -58,7 +58,9 @@ end
 
 function event_system.fire(name, params)
 	if event_system.registered_events[name] == nil then return end
-	params.event_name = name
+	if type(params) == "table" then
+		params.event_name = name
+	end
 	for _, reg in pairs(event_system.registered_events[name]) do
 		if (reg.predicate(params) == true) then
 			reg.callback(params)

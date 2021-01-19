@@ -3,6 +3,7 @@
 local modifier_aliases =
 {
 	ATT = { "ATK", "ATTACK"},
+	ELEM = {"ELEMENTAL", "ELEMENTAL_MAGIC", "ELEMENTAL_MAGIC_SKILL"}
 	
 }
 

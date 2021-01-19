@@ -3,10 +3,7 @@ local Promise = require("deferred")
 
 
 
-
 -- FILTER LOGIC START!! ------------------------------------------------------------------
-
-
 
 
 
@@ -259,27 +256,27 @@ end
 
 
 
-function estimate_permutation_size(categorized_gear_set)
+function estimate_permutation_size(categorized_gear_list)
 	local ret = 1
 	-- TODO: Be more accurate 2,10
 	for iSlot = 0, 10 do
-		local numThisSlot = categorized_gear_set.count[iSlot]
+		local numThisSlot = categorized_gear_list.count[iSlot]
 		if numThisSlot > 0 then
 			ret = ret * numThisSlot
 		end
 	end
 
 	-- Back
-	if categorized_gear_set.count[15] > 0 then ret = ret * categorized_gear_set.count[15] end
+	if categorized_gear_list.count[15] > 0 then ret = ret * categorized_gear_list.count[15] end
 
 	-- Earrings
-	local num_earrings = categorized_gear_set.count[11]
+	local num_earrings = categorized_gear_list.count[11]
 	if num_earrings > 1 then
 		ret = ret * (num_earrings * (num_earrings - 1)) / 2
 	end
 
 	-- Rings
-	local num_rings = categorized_gear_set.count[13]
+	local num_rings = categorized_gear_list.count[13]
 	if num_rings > 1 then
 		ret = ret * (num_rings * (num_rings - 1)) / 2
 	end
@@ -570,25 +567,27 @@ end
 
 
 
-
-function construct_dereferencer(set_struct)
-	return function ()
-		local r = {}
-		for sloti, index_into_gear_list in pairs(set_struct.indices) do
-			--print("r[" .. sloti .. "] = " .. Client.item_utils.get_item_name(set_struct.categorized_gear_list[sloti][index_into_gear_list]))
-			r[sloti] = set_struct.categorized_gear_list[sloti][index_into_gear_list]
-		end
-		return r
-	end
-end
+-- Moved to Client.item_utils
+--function construct_dereferencer(set_struct)
+--	return function ()
+--		local r = {}
+--		for sloti, index_into_gear_list in pairs(set_struct.indices) do
+--			--print("r[" .. sloti .. "] = " .. Client.item_utils.get_item_name(set_struct.categorized_gear_list[sloti][index_into_gear_list]))
+--			r[sloti] = set_struct.categorized_gear_list[sloti][index_into_gear_list]
+--		end
+--		return r
+--	end
+--end
 
 
 
 
 
 --local function build_gear_continuum(gear_list, purpose_name, done_callback)
-function async_build_gear_continuum(purpose_name, done_callback)
+function async_build_gear_continuum(purpose_name, job_optional)
 	local purpose = PURPOSES[purpose_name]
+	local player = Client.get_player()
+	local job = job_optional or player.main_job
 	local categorized_gear_list = filter_per_slot(categorize_gear_by_slot(get_relevant_gear(purpose_name)), purpose) -- TODO: pass a table instead of a name
 	local count_nil_storage = 0
 	local count_valid_storage = 0
@@ -613,7 +612,6 @@ function async_build_gear_continuum(purpose_name, done_callback)
 	local permute = permutator_factory(categorized_gear_list)
 
 	local count = 0
-	local player = Client.get_player()
 	local last_progress_report_time = os.time()
 	local start_time = os.time()
 	local is_long_mode_reported = false
@@ -625,17 +623,15 @@ function async_build_gear_continuum(purpose_name, done_callback)
 		local s = count
 		local e = count + batch_size
 		for i = s, e-1 do
-			local next_element = {
-			--built_sets[#built_sets+1] = {
-				categorized_gear_list = categorized_gear_list,
-				purpose_checked_against = purpose,
-				apparent_utility_results = purpose.apparent_utility(categorized_gear_list, cur_indices, player), -- Main evaluation for the purpose in question.
-				indices = shallow_copy(cur_indices)
-			}
-			next_element.dereference = construct_dereferencer(next_element)
+			local next_element = Client.item_utils.create_indexed_set(
+				categorized_gear_list,
+				shallow_copy(cur_indices), -- TODO: This is probably a big performance hit
+				purpose,
+				purpose.apparent_utility(categorized_gear_list, cur_indices, player)
+			)
 			add_and_filter_set_combination(built_sets, purpose, next_element)
 			count = count + 1
-			
+
 			local hard_cap_hit = false -- (count > MAX_ITERATIONS_LIMIT)
 			local can_continue = permute(cur_indices) -- ADVANCES STATE IN-PLACE
 			local STAHP = (hard_cap_hit or (not can_continue))
@@ -644,9 +640,10 @@ function async_build_gear_continuum(purpose_name, done_callback)
 			--end
 			if STAHP then
 				-- TODO: If using promises, might want to reject with "too complex" error or something similar
-				
+
 				if (hard_cap_hit) then warning("Hard cap reached: " .. MAX_ITERATIONS_LIMIT .. " iterations.") end
-				notice("Finished in " .. count .. " iterations.")
+				--notice("Finished in " .. count .. " iterations.")
+				notice("Found " .. #built_sets .. " sets for " .. purpose_name .. " out of " .. count .. " combinations.")
 				--done_callback(built_sets)
 				done_promise:resolve(built_sets)
 				break
@@ -672,8 +669,30 @@ function async_build_gear_continuum(purpose_name, done_callback)
 	end --function periodic_permute
 
 	notice("Estimated permutations for current inventory: " .. total_permutations_estimate)
-	periodic_permute(cur_indices, {}, PERMUTE_BATCH_SIZE, 0, done_callback)
+	periodic_permute(cur_indices, {}, PERMUTE_BATCH_SIZE, 0) --, done_callback)
 	return done_promise
 end
 
+
+-- GEAR CACHE FUNCTIONS
+
+function rebuild_gear_cache(purposes_table, job)
+	local start_time = os.time()
+	local prev_promise = Promise.resolve({})
+	local player = Client.get_player()
+	local cache = {}
+	local function cache_results(indexed_gear_set_list)
+		-- TODO: this
+	end
+	for purpose_name,_ in purposes_table do
+		prev_promise = prev_promise:next(function(indexed_gear_set_list)
+			cache_results(indexed_gear_set_list)
+			return async_build_gear_continuum(purpose_name)
+		end)
+	end
+	prev_promise:next(function(r)
+		--cache_results(r)
+		notice("Rebuild finished in " .. os.difftime(os.time(), start_time) .. " seconds")
+	end)
+end
 

@@ -7,6 +7,7 @@ local r = {}
 
 local EMPTY_TABLE = {}
 
+--[[
 local function calc_total_mods(gear_list, indices)
 	local r = {}
 	r.by_name = function(t, alias, default_value)
@@ -15,6 +16,8 @@ local function calc_total_mods(gear_list, indices)
 	Client.item_utils.apply_set_mods_by_index(r, gear_list, indices)
 	return r
 end
+]]
+
 
 -- Things like STR, DEX, atk, etc.
 function r.atomic_stat(alias)
@@ -28,19 +31,26 @@ function r.atomic_stat(alias)
 	atom.dimension_names = { mod_name }
 	function atom.apparent_utility(gear_list, cur_indices, player_optional)
 		local player = player_optional or Client.get_player()
-		local total = calc_total_mods(gear_list, cur_indices)
+		local total = Client.item_utils.calc_total_mods(gear_list, cur_indices)
 		return modifiers[mod_id]
 	end
 	function atom.select(set_list)
+		-- Cache should only be used for purposes that do not depend on dynamic/heuristic data
+		set_list.select_cache = set_list.select_cache or {}
+		if set_list.select_cache[mod_name] ~= nil then
+			return set_list.select_cache[mod_name]
+		end
 		local max_value = 0
 		local ret
 		for _,set in pairs(set_list) do
-			local value = calc_total_mods(set.categorized_gear_list, set.indices)
+			--local value = Client.item_utils.calc_total_mods(set.categorized_gear_list, set.indices)
+			local value = set.total_mods[mod_name]
 			if (value > max_value) then
 				ret = set
 				max_value = value
 			end
 		end
+		set_list.select_cache[mod_name] = ret
 		return ret
 	end
 	atom.relevant_modifiers = { mod_name }
@@ -55,31 +65,33 @@ r.auto_attack =
 		dimension_names = { "Attack", "Accuracy", "Haste"},
 		apparent_utility = function(gear_list, cur_indices, player_optional)
 			
-			function get_slot(slot_name)
-				--local item = gear_list[slot_name][cur_indeces[TM_FLAGS.slot_index[slot_name]+1]]
-				local item = gear_list[slot_name][cur_indices[Client.item_utils.flags.slot_index[slot_name]]]
-				if (item == nil) then return EMPTY_TABLE end
-				return item
-			end
-			function slot_res(slot_name)
-				local item = get_slot(slot_name).id
-				if (item == nil) then return EMPTY_TABLE end
-				return resources.items[get_slot(slot_name).id]
-			end
+			--function get_slot(slot_name)
+			--	--local item = gear_list[slot_name][cur_indeces[TM_FLAGS.slot_index[slot_name]+1]]
+			--	local item = gear_list[slot_name][cur_indices[Client.item_utils.flags.slot_index[slot_name]]]
+			--	if (item == nil) then return EMPTY_TABLE end
+			--	return item
+			--end
+			--function slot_res(slot_name)
+			--	local item_id = get_slot(slot_name).id
+			--	if (item_id == nil) then return EMPTY_TABLE end
+			--	return resources.items[item_id]
+			--end
+
+			local set = Client.item_utils.create_indexed_set(gear_list, cur_indices)
 			local player = player_optional or Client.get_player()
 			--local main = resources.items[gear_set["Main"].id]
-			local main = slot_res("Main") or {}
+			local main = set.get_slot_res("Main") or {}
 			--local sub = resources.items[gear_set["Sub"].id]
-			local sub = slot_res("Sub") or {}
+			local sub = set.get_slot_res("Sub") or {}
 			--local ret = {}
 
 			--local is_dual_wield = ((resources.items[gear_set["Main"].id].category == "Weapon") and (resources.items[gear_set["Sub"].id].category == "Weapon"))
 			--local weapon_damage = forcenumber(resources.items[gear_set["Main"].id].damage) + forcenumber(resources.items[gear_set["Sub"].id].damage)
 			--local weapon_delay = forcenumber(resources.items[gear_set["Main"].id].delay) + forcenumber(resources.items[gear_set["Sub"].id].delay)
 			
-			local is_dual_wield = ((slot_res("Main").category == "Weapon") and (slot_res("Sub").category == "Weapon"))
-			local weapon_damage = forcenumber(slot_res("Main").damage) + forcenumber(slot_res("Sub").damage)
-			local weapon_delay = forcenumber(slot_res("Main").delay) + forcenumber(slot_res("Sub").delay)
+			local is_dual_wield = ((main.category == "Weapon") and (sub.category == "Weapon"))
+			local weapon_damage = forcenumber(main.damage) + forcenumber(sub.damage)
+			local weapon_delay = forcenumber(main.delay) + forcenumber(sub.delay)
 			
 			-- Assume sets with dual wield (i.e. containing two weapons) will be passed in; handle filtering of sets based on presence of dual wield BEFORE this function is entered
 			local dual_wield_level = Client.player_utils.get_dual_wield_level()
@@ -97,17 +109,18 @@ r.auto_attack =
 				-- delay / dps
 				-- crit rate / dmg
 
-			local total_mods = calc_total_mods(gear_list, cur_indices) --{} -- TODO: Memory allocation overhead?
+			--local total_mods = Client.item_utils.calc_total_mods(gear_list, cur_indices) --{} -- TODO: Memory allocation overhead?
 			--apply_set_mods(total_mods, gear_set);
 			--apply_set_mods_by_index(total_mods, gear_list, cur_indices)
 			--print("Total mods for combination: ")
 			--print(total_mods)
 
 			-- Assuming we hit, how much damage
-			local att = total_mods:by_name("ATT")
-			local str = total_mods:by_name("STR")
+			-- Remember, this is only as a comparison to other gear, not a dps calculator
+			local att = set.total_mods.by_name("ATT")
+			local str = set.total_mods.by_name("STR")
 			local estimate_per_swing = weapon_damage + (str * ((str/2) + att))
-			local estimate_swings = get_average_swings(gear_list, cur_indices, total_mods, player)
+			local estimate_swings = get_average_swings(gear_list, cur_indices, set.total_mods, player)
 
 			-- returns:
 				-- [1] = attack/str
@@ -125,10 +138,15 @@ r.auto_attack =
 			local ret = {}
 			ret[1] = 
 				(estimate_per_swing * estimate_swings / weapon_delay) + 
-				((natural_h2h_damage + total_mods:by_name("KICK_DMG")) * total_mods:by_name("KICK_ATTACK_RATE") / 100 / weapon_delay);
-			ret[2] = total_mods:by_name("ACC") -- TODO: peacock charm showing 0?
-			ret[3] = (total_mods:by_name("HASTE_GEAR") + 1) / (weapon_delay) -- TODO: Delay on weapons
+				((natural_h2h_damage + set.total_mods.by_name("KICK_DMG")) * set.total_mods.by_name("KICK_ATTACK_RATE") / 100 / weapon_delay);
+			ret[2] = set.total_mods.by_name("ACC") -- TODO: peacock charm showing 0?
+			ret[3] = (set.total_mods.by_name("HASTE_GEAR") + 1) / (weapon_delay) -- TODO: Delay on weapons
 			return ret
+		end,
+
+		select = function(set_list)
+			-- TODO: this
+			--Client.heuristics_system.cur().
 		end,
 		
 		relevant_modifiers = 
@@ -238,5 +256,11 @@ r.elemental =
 r.dark =
 {
 }
+
+
+-- Instantiate an atomic purpose for each mod so it can be iterated for things like rebuild_gear_cache()
+for k,v in pairs(modifiers) do
+	r[v] = r.atomic_stat(v)
+end
 
 return r

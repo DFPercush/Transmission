@@ -31,8 +31,9 @@ _addon.commands = {'tm', 'transmission'}
 PROGRESS_REPORT_INTERVAL_MINUTES = 10
 LONG_MODE_START_TIME_SECONDS = 22
 
-PERMUTE_BATCH_SIZE = 1000  -- Set combinations
-PERMUTE_BATCH_DELAY = 0 -- Seconds
+-- For release, go as fast as possible while still being responsive
+PERMUTE_BATCH_SIZE = 50  -- Set combinations
+PERMUTE_BATCH_DELAY = 0.016 -- Seconds.
 -- There is also TEST_COMBINATION_FUNCTION - use search, must be defined below
 
 
@@ -170,10 +171,10 @@ end
 --local COMBINATION_FUNCTION = build_gear_continuum
 
 handle_command = function(...)
-	local args = {...}[1]
+	local args = {...} --[1]
 	local subcommand = args[1]
-
-	if (subcommand == "buildaa") then build_auto_attack()
+	if (subcommand == "buildaa") then
+		build_auto_attack()
 	elseif (subcommand == "checkevents") then print(Client.event_system.registered_events)
 	elseif (subcommand == 'peep') then peep()
 	elseif (subcommand == 'printnext' and (args[2] ~= nil)) then
@@ -185,6 +186,8 @@ handle_command = function(...)
 		react_to_next(event_name):next(function(...) print({...}) end )
 	elseif ((subcommand == 'r') or (subcommand == 'reload')) then
 		windower.send_command('lua reload Transmission')
+	elseif find({"rebuild", "bake", "cook"}, subcommand) then
+		print("Rebuild")
 	else
 		print(...)
 	end
