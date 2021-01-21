@@ -4,6 +4,7 @@
 Client = {}
 
 if (windower ~= nil) then
+	Client.add_to_chat = windower.add_to_chat -- must come first for print() during debugging
 	Client.system = windower
 	Client.system_name = 'Windower'
 	Client.addon_path = windower.addon_path
@@ -14,7 +15,6 @@ if (windower ~= nil) then
 	Client.get_player = function() return merge_right(windower.ffxi.get_player(), windower.ffxi.get_mob_by_target("me")) end
 	Client.get_target = function() return windower.ffxi.get_mob_by_target("t") end
 	Client.get_items = windower.ffxi.get_items
-	Client.add_to_chat = windower.add_to_chat
 
 elseif (ashita ~= nil) then
 	Client.system = ashita

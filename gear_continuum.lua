@@ -16,7 +16,6 @@ local function filter_relevant(equipment_list, purpose_name)
 	--		print("filter_relevant BEFORE: " .. Client.resources.items[item.id].en)
 	--	end
 	--end
-
 	local ret = {}
 	local has = false
 	local relevant_stats
@@ -30,7 +29,7 @@ local function filter_relevant(equipment_list, purpose_name)
 		relevant_stats = PURPOSES[purpose_name].relevant_modifiers
 	end
 	if tcount(relevant_stats) == 0 then
-		warn("Unknown stat: " .. purpose_name)
+		warning("Unknown stat: " .. purpose_name)
 		return equipment_list
 	end
 
@@ -91,8 +90,9 @@ end
 
 
 
-local function get_relevant_gear(purpose_name)
-	return filter_relevant(Client.item_utils.get_equippable_equipment(), purpose_name)
+local function get_relevant_gear(purpose_name, job_optional, level_optional)
+	local job = job_optional or Client.get_player().main_job
+	return filter_relevant(Client.item_utils.get_equippable_equipment(job, level_optional), purpose_name)
 end
 
 
@@ -584,11 +584,13 @@ end
 
 
 --local function build_gear_continuum(gear_list, purpose_name, done_callback)
-function async_build_gear_continuum(purpose_name, job_optional)
+function async_build_gear_continuum(purpose_name, job_optional, level_optional)
 	local purpose = PURPOSES[purpose_name]
 	local player = Client.get_player()
-	local job = job_optional or player.main_job
-	local categorized_gear_list = filter_per_slot(categorize_gear_by_slot(get_relevant_gear(purpose_name)), purpose) -- TODO: pass a table instead of a name
+	local job = string.upper(job_optional or player.main_job)
+	local level = level_optional or player.jobs[job] or 0
+	-- TODO: might want to async this
+	local categorized_gear_list = filter_per_slot(categorize_gear_by_slot(get_relevant_gear(purpose_name, job, level)), purpose) -- TODO: pass a table instead of a name
 	local count_nil_storage = 0
 	local count_valid_storage = 0
 	----print(categorized_gear_list[1][1])
@@ -618,10 +620,17 @@ function async_build_gear_continuum(purpose_name, job_optional)
 	local capturable_purpose = purpose
 	local total_permutations_estimate = estimate_permutation_size(categorized_gear_list)
 	local done_promise = Promise.new()
+	REBUILD_IN_PROGRESS = true
 	
 	periodic_permute = function(cur_indices, built_sets, batch_size, count)
 		local s = count
 		local e = count + batch_size
+		if CANCEL_REBUILD ~= nil then
+			local err_str = "Canceled at " .. os.date("%X", CANCEL_REBUILD) .. " on iteration " .. count .. " of " .. purpose_name
+			warning(err_str)
+			CANCEL_REBUILD = nil
+			return Promise.reject(err_str)
+		end
 		for i = s, e-1 do
 			local next_element = Client.item_utils.create_indexed_set(
 				categorized_gear_list,
@@ -643,7 +652,9 @@ function async_build_gear_continuum(purpose_name, job_optional)
 
 				if (hard_cap_hit) then warning("Hard cap reached: " .. MAX_ITERATIONS_LIMIT .. " iterations.") end
 				--notice("Finished in " .. count .. " iterations.")
-				notice("Found " .. #built_sets .. " sets for " .. purpose_name .. " out of " .. count .. " combinations.")
+				if Conf.showmsg.FOUND_SETS then
+					notice("Found " .. #built_sets .. " sets for " .. purpose_name .. " out of " .. count .. " combinations.")
+				end
 				--done_callback(built_sets)
 				done_promise:resolve(built_sets)
 				break
@@ -651,48 +662,117 @@ function async_build_gear_continuum(purpose_name, job_optional)
 			if (count == e) then
 				local now = os.time()
 				local tplus = os.difftime(now, start_time)
-				if (tplus > LONG_MODE_START_TIME_SECONDS and not is_long_mode_reported) then
-					notice("Entering long haul mode to avoid spam. Still working. Will report in " .. PROGRESS_REPORT_INTERVAL_MINUTES .. " minutes.")
+				if (tplus > Conf.LONG_MODE_START_TIME_SECONDS and not is_long_mode_reported) then
+					if Conf.showmsg.PROGRESS then
+						notice("Entering long haul mode to avoid spam. Still working. Will report in " .. Conf.LONG_TERM_PROGRESS_REPORT_INTERVAL_MINUTES .. " minutes.")
+					end
 					is_long_mode_reported = true
 				end
 				-- TODO: cur/max% report
 				local delta_t = os.difftime(now, last_progress_report_time)
-				if (delta_t > PROGRESS_REPORT_INTERVAL_MINUTES * 60)
-					or (tplus < LONG_MODE_START_TIME_SECONDS and delta_t > 5)
+				if (delta_t > Conf.LONG_TERM_PROGRESS_REPORT_INTERVAL_MINUTES * 60)
+					or (tplus < Conf.LONG_MODE_START_TIME_SECONDS and delta_t > Conf.SHORT_TERM_PROGRESS_REPORT_INTERVAL_SECONDS)
 				then
-					notice("Progress: Found " .. #built_sets .. " gear sets from " .. count .. " / " .. total_permutations_estimate .. " combinations...")
+					if Conf.showmsg.PROGRESS then
+						--notice("Progress: Found " .. #built_sets .. " gear sets from " .. count .. " / " .. total_permutations_estimate .. " combinations...")
+						local remaining = total_permutations_estimate - count
+						local remaining_str
+						if remaining < 0 then remaining_str = "unknown"
+						else remaining_str = tostring(remaining)
+						end
+						notice("Progress: " .. purpose_name .. " " .. #built_sets .. "/" .. count .. ", " .. remaining_str .. " left")
+					end
 					last_progress_report_time = now
 				end
-				schedule(function() periodic_permute(cur_indices, built_sets, batch_size, count) end, PERMUTE_BATCH_DELAY)
+				schedule(function() periodic_permute(cur_indices, built_sets, batch_size, count) end, Conf.PERMUTE_BATCH_DELAY)
 			end
 		end -- for (batch_size)
 	end --function periodic_permute
 
-	notice("Estimated permutations for current inventory: " .. total_permutations_estimate)
-	periodic_permute(cur_indices, {}, PERMUTE_BATCH_SIZE, 0) --, done_callback)
-	return done_promise
+	if Conf.showmsg.ESTIMATED_PERMUTATIONS then
+		notice("Estimated permutations for " .. purpose_name .. ": " .. total_permutations_estimate)
+	end
+	periodic_permute(cur_indices, {}, Conf.PERMUTE_BATCH_SIZE, 0) --, done_callback)
+	return done_promise:next(function(results)
+		REBUILD_IN_PROGRESS = false
+		CANCEL_REBUILD = nil
+		return results
+		--return Promise.resolve(results)
+	end)
 end
 
 
 -- GEAR CACHE FUNCTIONS
 
-function rebuild_gear_cache(purposes_table, job)
-	local start_time = os.time()
-	local prev_promise = Promise.resolve({})
-	local player = Client.get_player()
-	local cache = {}
-	local function cache_results(indexed_gear_set_list)
-		-- TODO: this
-	end
-	for purpose_name,_ in purposes_table do
-		prev_promise = prev_promise:next(function(indexed_gear_set_list)
-			cache_results(indexed_gear_set_list)
-			return async_build_gear_continuum(purpose_name)
-		end)
-	end
-	prev_promise:next(function(r)
-		--cache_results(r)
-		notice("Rebuild finished in " .. os.difftime(os.time(), start_time) .. " seconds")
-	end)
+local function cache_store_results(indexed_gear_set_list)
+	GEAR_CACHE = GEAR_CACHE or {}
+	-- TODO: this
 end
 
+function async_rebuild_gear_cache_for_job(purposes_table, job_optional, level_optional)
+	local start_time = os.time()
+	local prev_promise = Promise.resolve({})
+	local num_processed = -1  -- the empty value in that resolve ^ will increment to 0
+	local player = Client.get_player()
+	local job = string.upper(job_optional or player.main_job)
+	local level = level_optional or player.jobs[job] or 0
+	local cache = {}
+	for purpose_name,_ in pairs(purposes_table) do
+		prev_promise = prev_promise:next(
+			function(indexed_gear_set_list)
+				cache_store_results(indexed_gear_set_list)
+				num_processed = num_processed + 1
+				--print(#indexed_gear_set_list .. " results. Next: " .. purpose_name)
+				if Conf.showmsg.DEBUG_REBUILD_JOB_PURPOSE then
+					print(job .. level .. " " .. num_processed .. "/" .. tcount(purposes_table) .. " " .. purpose_name)
+				end
+				--return Promise.reject("testing")
+				return async_build_gear_continuum(purpose_name, job, level)
+			end
+			--,
+			--function(err)
+			--	error(tostring(err))
+			--	return Promise.reject(err)
+			--end
+		)
+	end
+	--return prev_promise:next(function(x)
+	--	print(#x .. " results.")
+	--	print(num_processed .. " / " .. tcount(purposes_table))
+	--	return #x
+	--end)
+	return prev_promise:next(function(indexed_gear_set_list)
+		cache_store_results(indexed_gear_set_list)
+		num_processed = num_processed + 1
+		if Conf.showmsg.DEBUG_REBUILD_JOB_FINISH then
+			print("async_rebuild_gear_cache_for_job() finished " .. num_processed .. "/" .. tcount(purposes_table) .. " purposes.")
+		end
+		return true
+	end) --, function (err)
+	--	error(tostring(err))
+	--end)
+	--prev_promise:next(function(r)
+	--	--cache_results(r)
+	--	notice("Rebuild finished in " .. os.difftime(os.time(), start_time) .. " seconds")
+	--end)
+end
+
+function async_rebuild_gear_cache_for_multiple_jobs(purposes_table, optional_key_is_job_value_is_level_ala_get_player_dot_jobs)
+	local player = Client.get_player()
+	local jobs = optional_key_is_job_value_is_level_ala_get_player_dot_jobs or player.jobs
+	local prev_promise = Promise.resolve({})
+	local jpcount = 0
+	for job, level in pairs(jobs) do
+		prev_promise = prev_promise:next(function(count)
+			--cache_store_results(indexed_gear_set_list)
+			jpcount = jpcount + count
+			return async_rebuild_gear_cache_for_job(purposes_table, job, level)
+		end)
+	end
+	return prev_promise:next(function(count)
+		jpcount = jpcount + count
+		-- TODO: if Conf.showmsg.something then
+		notice("All done! " .. jpcount .. " job-purposes evaluated.")
+		return jpcount
+	end)
+end

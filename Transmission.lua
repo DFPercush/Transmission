@@ -1,8 +1,7 @@
-local purposes = require "purposes"
-local rolling_average = require "rolling_average"
 --[[
 
 Transmission
+
 An FFXI "gear shifting" addon that automatically finds and optimizes
 equipment for various purposes with minimal end user scripting.
 
@@ -10,36 +9,19 @@ By DFPercush and Silver_Skree
 
 ]]
 
--- TODO:
-	-- stats_i_care_about_on("war", "auto_attack", "ws", "def" ...)
-		-- or ("rng", {ratt=100, racc=75, ...}, {exclude_list})
-	-- loadout("rng") -- pull from storage
-	--
-	-- set_priority_multiplier(number) -- ratio of how much of higher priority stat to give up for a lower priority stat
-
 _addon.name	   = 'Transmission'
 _addon.author  = 'DFPercush'
 _addon.version = '0.0.1'
 _addon.commands = {'tm', 'transmission'}
 
 
-
-
--- Config
---MAX_ITERATIONS_LIMIT = 10000000  -- hard fail safe on max run time
---PRUNE_SETS_INTERVAL_COUNT = 1000  -- number of combinations to accumulate before pruning
-PROGRESS_REPORT_INTERVAL_MINUTES = 10
-LONG_MODE_START_TIME_SECONDS = 22
-
--- For release, go as fast as possible while still being responsive
-PERMUTE_BATCH_SIZE = 50  -- Set combinations
-PERMUTE_BATCH_DELAY = 0.016 -- Seconds.
--- There is also TEST_COMBINATION_FUNCTION - use search, must be defined below
+require("data/settings")
 
 
 -- Abstraction layer
 require('client')
 PURPOSES = require("purposes") -- Depends on global Client; require client first
+local rolling_average = require "rolling_average"
 
 -- Client (windower) components
 -- TODO: Move to the client module...?
@@ -48,7 +30,22 @@ require('logger')
 local res = Client.resources
 resources = res
 __OUTSTANDING_COROUTINES__ = {}
-function schedule(f,t) local id = coroutine.schedule(f,t); table.insert(__OUTSTANDING_COROUTINES__, id) end
+function schedule(f,t)
+	local id
+	local function wrapper()
+		local ret = f()
+		coroutine.close(id)
+		--__OUTSTANDING_COROUTINES__[id] = nil
+		local i = find(__OUTSTANDING_COROUTINES__, id)
+		if i > 0 then
+			__OUTSTANDING_COROUTINES__[i] = nil
+		end
+		return ret
+	end
+	--id = coroutine.schedule(f,t)
+	id = coroutine.schedule(wrapper,t)
+	table.insert(__OUTSTANDING_COROUTINES__, id)
+end
 Client.register_event('unload',function ()
 	for i, coroutine_id in pairs(__OUTSTANDING_COROUTINES__) do
 		coroutine.close(coroutine_id)
@@ -116,7 +113,7 @@ function build_auto_attack()
 	--local p = Promise.new():next(function() print("Promise resolved") end)
 	--coroutine.schedule(function() p:resolve() end, .1)
 	--if true then return end
-	local purpose = purposes.auto_attack
+	local purpose = PURPOSES.auto_attack
 	return async_build_gear_continuum('auto_attack'):next(
 		function(result)
 			print(" ------- DING, FRIES ARE DONE -------")
@@ -166,12 +163,76 @@ function build_auto_attack()
 	end)
 end
 
+local function rebuild(args)
+	local job, level, notice_str
+	notice_str = "Building"
+	--print("rebuild() args = " .. tostring(args))
+	if type(args[2]) == "string" then
+		job = string.upper(args[2])
+		notice_str = notice_str .. " for " .. job
+	end
+	if type(args[3]) ~= nil then
+		level = tonumber(args[3]) or Client.get_player().jobs[job] or 0
+		notice_str = notice_str .. level
+	elseif job ~= nil then
+		level = Client.get_player().jobs[job]
+		notice_str = notice_str .. level
+	end
+	if Conf.showmsg.REBUILD_START then
+		notice(notice_str .. "...")
+	end
+	local when_finished
+
+	-- Test to find a specific point of failure
+	local test_purposes =
+	{
+		--auto_attack = PURPOSES.auto_attack,
+		MND = PURPOSES.MND,
+		INT = PURPOSES.INT,
+		GARDENING_WILT_BONUS = PURPOSES.GARDENING_WILT_BONUS,
+		--auto_attack = PURPOSES.auto_attack,
+		LIGHTDEF = PURPOSES.LIGHTDEF,
+		LIGHT_ARTS_SKILL = PURPOSES.LIGHT_ARTS_SKILL,
+		LIGHT_ARTS_EFFECT =  PURPOSES.LIGHT_ARTS_EFFECT,
+		LIGHT_ARTS_REGEN = PURPOSES.LIGHT_ARTS_REGEN,
+	}
+	--local P = test_purposes
+	local P =  PURPOSES
+
+	if level ~= nil then
+		when_finished = async_rebuild_gear_cache_for_job(P, job, level)
+	else
+		-- TODO: Can pass { JOB = level, ...}
+		when_finished = async_rebuild_gear_cache_for_multiple_jobs(P)
+	end
+	when_finished:next(
+		function(trash)
+			if Conf.showmsg.REBUILD_FINISH then
+				notice("Rebuild finished!")
+			end
+		end
+	--):catch(
+	,
+		function(err)
+			error("While doing a rebuild: " .. tostring(err))
+		end
+	)
+end
+
+local function print_help()
+	notice("TODO: help text")
+end
 
 --local TEST_COMBINATION_FUNCTION = generate_useful_combinations_v1
 --local COMBINATION_FUNCTION = build_gear_continuum
 
-handle_command = function(...)
-	local args = {...} --[1]
+handle_command = function(...) --event_name, ...)
+	local args = {...}
+	--for iarg = 1, select("#", ...) do
+	--	args[iarg] = select(iarg, ...)
+	--end
+	--for i,v in pairs(args) do args[i] = Client.system.from_shift_jis(Client.system.convert_auto_trans(v)) end
+
 	local subcommand = args[1]
 	if (subcommand == "buildaa") then
 		build_auto_attack()
@@ -186,8 +247,25 @@ handle_command = function(...)
 		react_to_next(event_name):next(function(...) print({...}) end )
 	elseif ((subcommand == 'r') or (subcommand == 'reload')) then
 		windower.send_command('lua reload Transmission')
-	elseif find({"rebuild", "bake", "cook"}, subcommand) then
-		print("Rebuild")
+	elseif find({"rebuild", "rb", "build", "b"}, subcommand) then
+		rebuild(args)
+	elseif find({"cancel", "c"}, subcommand) then
+		if REBUILD_IN_PROGRESS then
+			CANCEL_REBUILD = os.time()
+		else
+			error("No operation in progress.")
+		end
+	elseif subcommand == "help" then
+		print_help()
+	elseif subcommand == "eval" then
+		local eval_str = ""
+		for i = 2, #args do
+			eval_str = eval_str .. " " .. args[i]
+		end
+		local eval_func = loadstring(eval_str)
+		if eval_func ~= nil then print(eval_func())
+		else error("Invalid lua")
+		end
 	else
 		print(...)
 	end
@@ -213,5 +291,5 @@ for x = 1,15 do
 end
 ]]
 
-
-print("Loaded!")
+-- TODO: print some information about gear cache
+notice("Loaded!")

@@ -1,4 +1,8 @@
 
+--local modifiers = require("modifiers")
+--modifiers = merge_right(modifiers, mirror(modifiers))
+--print("mod_id DEF = " .. modifiers["DEF"])
+
 --require('logger')
 local modifier_aliases =
 {

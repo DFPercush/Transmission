@@ -1,11 +1,13 @@
 -- Here, a purpose means any action (like a spell, ability, or weapon skill),
 --	or state (like auto_attack, idle/movement speed), which can be boosted by gear.
 
-local get_modifier_by_alias = require("modifier_aliases")
+--local get_modifier_by_alias = require("modifier_aliases")
 local modifiers = require("modifiers")
 local r = {}
 
 local EMPTY_TABLE = {}
+
+--print(debug.traceback("purposes.lua loaded from"))
 
 --[[
 local function calc_total_mods(gear_list, indices)
@@ -20,15 +22,16 @@ end
 
 
 -- Things like STR, DEX, atk, etc.
-function r.atomic_stat(alias)
+local function atomic_stat(alias)
 	local atom = {}
-	local mod_name = get_modifier_by_alias(alias)
+	local mod_name = Client.item_utils.get_modifier_by_alias(alias)
 	local mod_id = Client.item_utils.get_modifier_id(mod_name)
 	if mod_id == nil then return {} end
 
 	atom.name = mod_name
 	atom.num_of_dimensions = 1
 	atom.dimension_names = { mod_name }
+
 	function atom.apparent_utility(gear_list, cur_indices, player_optional)
 		local player = player_optional or Client.get_player()
 		local total = Client.item_utils.calc_total_mods(gear_list, cur_indices)
@@ -233,6 +236,7 @@ r.auto_attack =
 		want_negative = {"DELAY"}
 	}
 
+	--[[
 r.build_tp =
 {
 	num_of_dimensions = 0,
@@ -257,10 +261,14 @@ r.dark =
 {
 }
 
+]]
+
 
 -- Instantiate an atomic purpose for each mod so it can be iterated for things like rebuild_gear_cache()
 for k,v in pairs(modifiers) do
-	r[v] = r.atomic_stat(v)
+	if type(v) == "string" then
+		r[v] = atomic_stat(v)
+	end
 end
 
 return r

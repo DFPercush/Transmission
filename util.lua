@@ -76,24 +76,6 @@ function item_name(item)
 	return res.items[id].en
 end
 
--- TODO: This interacts with the game, probably shouldn't be in this file
-console_print = print
-function print(msg)
-	msg = tostring(msg)
-	local L = string.len(msg)
-	if (L <= 0) then return end
-	out = ""
-	for i = 1, L, 1 do
-		if (msg[i] == "\n") then
-			Client.add_to_chat(204, out)
-			out = ""
-		else
-			out = out .. msg[i]
-		end
-	end
-	Client.add_to_chat(204, out)
-end
-
 old_tostring = tostring
 function tostring(x, depth)
 	local pad_per_level = "  "
@@ -118,6 +100,28 @@ function tostring(x, depth)
 		return out
 	else
 		return old_tostring(x)
+	end
+end
+
+-- TODO: This interacts with the game, probably shouldn't be in this file
+console_print = print
+function print(thing)
+	msg = tostring(thing)
+	local L = string.len(msg)
+	if (L <= 0) then return end
+	local out = ""
+	for i = 1, L, 1 do
+		if (msg[i] == "\n") then
+			if string.len(out) > 0 then
+				Client.add_to_chat(204, out)
+			end
+			out = ""
+		else
+			out = out .. tostring(msg[i])
+		end
+	end
+	if (Client ~= nil) then	Client.add_to_chat(204, out)
+	else console_print(msg)
 	end
 end
 
@@ -319,4 +323,20 @@ function find(haystack, needle)
 		end
 	end
 	return nil
+end
+
+function mirror(kv_to_vk)
+	if type(kv_to_vk) == "table" then
+		local t = {}
+		for k,v in pairs(kv_to_vk) do
+			t[v] = k
+		end
+		return t
+	elseif type(kv_to_vk) == "string" then
+		local s = ""
+		for i = string.len(kv_to_vk), 1, -1 do
+			s = s .. kv_to_vk[i]
+		end
+		return s
+	end
 end

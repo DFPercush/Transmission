@@ -195,6 +195,7 @@ local modifiers =
 [167]="HASTE_MAGIC",
 [383]="HASTE_ABILITY",
 [384]="HASTE_GEAR",
+
 [168]="SPELLINTERRUPT",
 [169]="MOVE",
 [972]="MOUNT_MOVE",
@@ -319,7 +320,8 @@ local modifiers =
 [883]="PERFECT_DODGE",
 [302]="TRIPLE_ATTACK",
 [303]="TREASURE_HUNTER",
-[874]="SNEAK_ATK_DEX",
+--[874]="SNEAK_ATK_DEX", --dup
+[1874]="SNEAK_ATK_DEX",
 [520]="TRICK_ATK_AGI",
 [835]="MUG_EFFECT",
 [884]="ACC_COLLAB_EFFECT",
@@ -454,8 +456,10 @@ local modifiers =
 [870]="ROLL_CASTERS",
 [871]="ROLL_COURSERS",
 [872]="ROLL_BLITZERS",
-[873]="ROLL_TACTICIANS",
-[874]="ROLL_ALLIES",
+--[873]="ROLL_TACTICIANS", --dup
+[1873]="ROLL_TACTICIANS",
+--[874]="ROLL_ALLIES", --dup
+[2874]="ROLL_ALLIES",
 [875]="ROLL_MISERS",
 [876]="ROLL_COMPANIONS",
 [877]="ROLL_AVENGERS",
@@ -545,7 +549,6 @@ local modifiers =
 [944]="CONSERVE_TP",
 
 	-- Rune Fencer
-
 [963]="INQUARTATA",
 
 	-- Stores the amount of elemental affinity (elemental staves mostly) - damage, acc, and perpetuation is all handled separately
@@ -575,15 +578,16 @@ local modifiers =
 [558]="WATER_AFFINITY_PERP",
 [559]="LIGHT_AFFINITY_PERP",
 [560]="DARK_AFFINITY_PERP",
+-- GOOD TO HERE
 
-	-- Special Modifier+
+
+-- Special Modifier+
 [355]="ADDS_WEAPONSKILL",
 [356]="ADDS_WEAPONSKILL_DYN",
 
 [358]="STEALTH",
 [946]="SNEAK_DURATION",
 [947]="INVISIBLE_DURATION",
-
 [366]="MAIN_DMG_RATING",
 [367]="SUB_DMG_RATING",
 [368]="REGAIN",
@@ -607,6 +611,8 @@ local modifiers =
 [392]="WEAPON_BASH",
 
 [402]="WYVERN_BREATH",
+
+
 
 	-- Gear set modifiers
 [408]="DA_DOUBLE_DAMAGE",
@@ -712,7 +718,8 @@ local modifiers =
 [525]="AUGMENTS_CONVERT",
 [526]="AUGMENTS_SA",
 [527]="AUGMENTS_TA",
-[873]="AUGMENTS_FEINT",
+--[873]="AUGMENTS_FEINT", --dup
+[2873]="AUGMENTS_FEINT",
 [886]="AUGMENTS_ASSASSINS_CHARGE",
 [887]="AUGMENTS_AMBUSH",
 [889]="AUGMENTS_AURA_STEAL",
@@ -799,6 +806,8 @@ local modifiers =
 	--[986]="SPARE",
 	--[987]="SPARE",
 	--[988]="SPARE",
+--[[
+]]
 }
 
 return modifiers

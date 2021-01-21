@@ -56,14 +56,14 @@ function event_system.unregister_event(id)
 	end
 end
 
-function event_system.fire(name, params)
+function event_system.fire(name, params, ...)
 	if event_system.registered_events[name] == nil then return end
 	if type(params) == "table" then
 		params.event_name = name
 	end
 	for _, reg in pairs(event_system.registered_events[name]) do
 		if (reg.predicate(params) == true) then
-			reg.callback(params)
+			reg.callback(params, ...)
 		end
 	end
 end
@@ -73,7 +73,8 @@ end
 if (windower ~= nil) then
 	for event_name, make_handler in pairs(event_system.handler_factories) do
 		local handler_function = make_handler(event_system.fire)
-		windower.register_event(event_name, handler_function)
+		local system_event_name = event_system.event_name_map[event_name]
+		windower.register_event(system_event_name or event_name, handler_function)
 	end
 elseif (ashita ~= nil) then
 end

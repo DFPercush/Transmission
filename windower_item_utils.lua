@@ -91,12 +91,14 @@ function R.filter_in_equippable_storage(items)
 	return ret
 end
 
-function R.get_equippable_equipment()
+function R.get_equippable_equipment(job_optional, level_optional)
 	--notice("Boop")
 	--notice("p1=" .. p1 .. "  p2=" .. p2)
 	local count = 0
 	local bags = windower.ffxi.get_items()
 	local player = Client.get_player()
+	local job = string.upper(job_optional or player.main_job)
+	local level = level_optional or player.jobs[job] or 0
 	local ret = {}
 	local num_added = 0
 	--print(bags)
@@ -127,7 +129,7 @@ function R.get_equippable_equipment()
 						if res.items[item.id] ~= nil
 						 --and (res.items[item.id].category == "Armor" or res.items[item.id].category == "Weapon")
 						 then
-							if R.can_equip(item, player) then
+							if R.can_equip(item, job, level, player) then
 								--print(res.items[item.id].en)
 								--ret[#ret+1] = item
 								
@@ -150,17 +152,20 @@ function R.get_equippable_equipment()
 	return ret
 end
 
-function R.can_equip(item, player_optional)
+function R.can_equip(item, job_optional, level_optional, player_optional)
 	--things to check: race/gender, job, level
 	-- TODO: Filter only category
 	local player = player_optional or Client.get_player()
+	local job = string.upper(job_optional or player.main_job)
+	local job_level = level_optional or player.jobs[job] or 0
 	local res_item = res.items[item.id]
 	if res_item.category ~= "Weapon" and res_item.category ~= "Armor" then return false end
 
 	if item ~= nil and item.id ~= nil and res.items[item.id] ~= nil then
 		if not res_item.races[player.race] then return false end
-		if not res_item.jobs[job_index[player.main_job]] then return false end
-		if player.main_job_level < res_item.level then return false end
+		if not res_item.jobs[job_index[job]] then return false end
+		--if player.main_job_level < res_item.level then return false end
+		if job_level < res_item.level then return false end
 		return true
 	end
 	return false
@@ -194,10 +199,11 @@ end
 -- cat mods-enum-cpp.txt | sed s/\\\ *\\\([A-Za-z0-9_]*\\\)\\\ *=\\\ *\\\([0-9]*\\\).*/\\\[\\\2\\\]=\\\"\\\1\\\",/ > modifiers.lua
 -- will require slight editing at beginning and end of file
 R.modifiers = require("modifiers")
-	-- two-way mapping for modifiers
-	for k,v in pairs(R.modifiers) do
-		R.modifiers[v] = k
-	end
+-- two-way mapping for modifiers
+R.modifiers = merge_right(R.modifiers, mirror(R.modifiers))
+	--for k,v in pairs(R.modifiers) do
+	--	R.modifiers[v] = k
+	--end
 
 
 

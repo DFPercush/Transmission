@@ -207,7 +207,7 @@ function M.new(options)
 			return next
 		end,
 		-- Modified DFP, added catch()
-		catch = function(self, failure) return self:next(nil, failure) end,
+		catch = function(self, failure) return self:next(function(x) return x end, failure) end,
 		state = 0,
 		queue = {},
 		success = options.success,
@@ -294,6 +294,14 @@ function M.map(args, fn)
 	end
 	donext(1)
 	return d
+end
+
+function M.resolve(value)
+	return M.new():resolve(value)
+end
+
+function M.reject(value)
+	return M.new():reject(value)
 end
 
 --- Returns a new promise object that is resolved as soon as the first of the promises gets resolved/rejected.
