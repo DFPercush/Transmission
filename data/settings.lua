@@ -16,6 +16,7 @@ Conf =
 	PERMUTE_BATCH_SIZE = 500,  -- Unit: gear sets/combinations
 	PERMUTE_BATCH_DELAY = 0.1, -- Unit: seconds
 	
+	CLEAR_CACHE_COMMAND_CONFIRMATION_TIMEOUT_SECONDS = 60,  -- //tm cc
 	
 	--VERBOSITY_LEVEL = 1,
 
@@ -28,9 +29,12 @@ Conf =
 		PROGRESS = true,
 		REBUILD_START = true,
 		REBUILD_FINISH = true,
+		CACHE_LOADED = true,
+		CACHE_SAVE_START = true,
+		CACHE_SAVED_SUCCESS = true,
 
 
-		DEBUG_REBUILD_JOB_PURPOSE = true,
+		DEBUG_REBUILD_JOB_PURPOSE = false,
 		DEBUG_REBUILD_JOB_FINISH = true,
 	}
 }

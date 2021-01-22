@@ -54,14 +54,15 @@ Client.register_event('action_attack', function (...)
 	--if events_since_last_change.melee_swing_by_player < gear_change_cooldown_event_counts.melee_swing_by_player then return end
 	--gear_change_cooldown_event_counts.melee_swing_by_player = 0
 
-	if (temp_auto_attack_sets == nil) then
-		build_auto_attack():next(function (result)
-			--print(result)
-			temp_auto_attack_sets = result
-			select_gear(temp_auto_attack_sets)
-		end)
-	else
-		select_gear(temp_auto_attack_sets)
-	end
+	--if (temp_auto_attack_sets == nil) then
+	--	-- NO, GOD, NO, FUCK THIS
+	--	--build_auto_attack():next(function (result)
+	--	--	--print(result)
+	--	--	temp_auto_attack_sets = result
+	--	--	select_gear(temp_auto_attack_sets)
+	--	--end)
+	--else
+	--	select_gear(temp_auto_attack_sets)
+	--end
 	
 end, predicates.is_player_action)

@@ -1,6 +1,20 @@
 local restricted_slots = require("restricted_slots")
 local Promise = require("deferred")
 
+GEAR_CACHE = {}
+--[[
+	player_name = {
+		JOB = {
+			[level] = {
+				purpose_name = {
+					[1] = { [0-based slot index] = item_id, ... }
+					[2] = ...
+				}
+			}
+		}
+	}
+]]
+
 
 
 -- FILTER LOGIC START!! ------------------------------------------------------------------
@@ -8,25 +22,20 @@ local Promise = require("deferred")
 
 
 local function filter_relevant(equipment_list, purpose_name)
-
-	--print("filter_relevant(equipment_list[" .. #equipment_list .. "], purpose_name = '" .. purpose_name .. "')")
-	--print(Client.resources.items[equipment_list[1].id].slots)
-	--for _,item in pairs(equipment_list) do
-	--	if Client.resources.items[item.id].slots[0] then
-	--		print("filter_relevant BEFORE: " .. Client.resources.items[item.id].en)
-	--	end
-	--end
 	local ret = {}
 	local has = false
 	local relevant_stats
+	--print("filter_relevant({equip}, \"" .. purpose_name .. "\")")
 	local purpose = PURPOSES[purpose_name]
+	--print(purpose)
 	if purpose == nil then
 		if Client.item_utils.modifiers[Client.item_utils.get_modifier_by_alias(purpose_name)] ~= nil then
 			-- Allow a raw modifier name
+			-- TODO: I think this can be deleted because atomic_stat is generating purposes for every base modifier
 			relevant_stats = { purpose_name }
 		end
 	else
-		relevant_stats = PURPOSES[purpose_name].relevant_modifiers
+		relevant_stats = purpose.relevant_modifiers
 	end
 	if tcount(relevant_stats) == 0 then
 		warning("Unknown stat: " .. purpose_name)
@@ -702,12 +711,183 @@ function async_build_gear_continuum(purpose_name, job_optional, level_optional)
 end
 
 
--- GEAR CACHE FUNCTIONS
+-- GEAR CACHE FUNCTIONS -------------------------------------------------------------------------------------
 
-local function cache_store_results(indexed_gear_set_list)
-	GEAR_CACHE = GEAR_CACHE or {}
-	-- TODO: this
+-- TODO: Instead of a global file with [player][...], do per-player file with [job][level] etc...
+
+GEAR_CACHE_PRINT_ONCE_DETECT = false
+
+-- Detects whether a serialized gear list is the same as memory-referenced list.
+-- Also works for two memory-referenced tables.
+local function categorized_gear_lists_are_equal(a, b)
+	if type(a) ~= "table" then return false end
+	if type(b) ~= "table" then return false end
+	local itema, itemb, ida, idb
+	for sloti = 0, 15 do
+		if #(a[sloti]) ~= #(b[sloti]) then return false end
+		for i = 0, #(a[sloti]) do
+			itema = a[sloti][i]
+			if (type(itema) == "table") then ida = itema.id
+			else ida = itema
+			end
+
+			itemb = b[sloti][i]
+			if type(itemb) == "table" then idb = itemb.id
+			else idb = itemb
+			end
+
+			if ida ~= idb then return false end
+		end
+	end
+	return true
 end
+
+
+-- Assumes the results are all from a single purpose, on a single job, at a particular level
+local function cache_store_results(job, level, indexed_gear_set_list)
+	if (#indexed_gear_set_list == 0) then return end
+	local player = Client.get_player()
+	GEAR_CACHE[player.name] = GEAR_CACHE[player.name] or {}
+	GEAR_CACHE[player.name][job] = GEAR_CACHE[player.name][job] or {}
+	GEAR_CACHE[player.name][job][level] = GEAR_CACHE[player.name][job][level] or {}
+	local purpose_name = indexed_gear_set_list[1].purpose_checked_against.name
+	GEAR_CACHE[player.name][job][level][purpose_name] = {} -- Clear previous data
+	local cache = GEAR_CACHE[player.name][job][level][purpose_name]
+	cache.categorized_gear_lists = {}
+	cache.indexed_gear_set_list = indexed_gear_set_list
+	for i,indexed_gear_set in pairs(indexed_gear_set_list) do
+		--table.insert(GEAR_CACHE[player.name][job][level][purpose_name], indexed_gear_set)
+		--table.insert(cache, indexed_gear_set_list)
+
+		insert_unique(cache.categorized_gear_lists, indexed_gear_set.categorized_gear_list, categorized_gear_lists_are_equal)
+	end
+end
+
+
+
+function save_gear_cache()
+	-- Before any serialization, must first convert item objects into ids,
+	--  references into indices, and store the referenced categorized_gear_list.
+	--print("dbg 1")
+	if Conf.showmsg.CACHE_SAVE_START then
+		notice("Saving gear cache...")
+	end
+	local cc = deep_copy(GEAR_CACHE, function(v) return type(v) ~= "function" end) -- cache copy
+	--print("dbg 2")
+	for player_name, player_data in pairs(cc) do
+		--print("dbg 3")
+		for job_name, job_data in pairs(player_data) do
+			--print("dbg 4")
+			for level, level_data in pairs(job_data) do
+				--print("dbg 5")
+				for purpose_name, purpose_data in pairs(level_data) do
+					--print("dbg 6")
+					local indexed_gear_set_list = purpose_data.indexed_gear_set_list
+
+					-- Convert item objects into ids for the categorized gear lists
+					for iGearList, categorized_gear_list in pairs(purpose_data.categorized_gear_lists) do
+						--print("dbg 7")
+						--print("categorized gear list:")
+						--print(categorized_gear_list)
+
+						-- TODO: When loading, alias the slot names to the numbers again, also .count[sloti]
+						-- Delete the named slots and leave only the numbers, to avoid duplication bugs
+						for sloti, slot_items in pairs(categorized_gear_list) do
+							if type(sloti) ~= "number" then
+								categorized_gear_list[sloti] = nil
+							end
+						end
+						for sloti = 0, 15 do
+							local slot_items = categorized_gear_list[sloti]
+							--print("dbg 8")
+							for item_index, item in pairs(slot_items) do
+								--print("dbg 9")
+								--print("GEAR_CACHE[\"" .. player_name .. "\"][\"" .. job_name .. "\"][" .. level .. "][\"" .. purpose_name .. "\"].categorized_gear_list[" .. iGearList .. "][" .. sloti .. "]")
+								--print("item = " .. tostring(item))
+								if type(item) == "table" then
+									slot_items[item_index] = item.id
+								end
+							end
+						end
+					end
+					--print("dbg 10")
+
+					for iset, indexed_gear_set in pairs(indexed_gear_set_list) do
+						--print("dbg 11")
+						-- turn the lua table reference for categorized_gear_list into an index
+						for icat = 1, #purpose_data.categorized_gear_lists do
+							--print("dbg 12")
+							local cat_match = true
+
+							--if purpose_data.categorized_gear_lists[icat] == indexed_gear_set.categorized_gear_list then
+							if categorized_gear_lists_are_equal(purpose_data.categorized_gear_lists[icat], indexed_gear_set.categorized_gear_list) then
+								--print("dbg 13")
+								indexed_gear_set.categorized_gear_list_index = icat
+							end
+						end
+						--print("dbg 14")
+						if indexed_gear_set.categorized_gear_list_index == nil then
+							--print("dbg 15")
+							warning_once("debug: the referenced categorized_gear_list was not present in the saved data")
+						end
+						--print("dbg 16")
+						indexed_gear_set.categorized_gear_list = nil
+
+						-- turn the purpose reference into a name
+						indexed_gear_set.purpose_name = indexed_gear_set.purpose_checked_against.name
+						indexed_gear_set.purpose_checked_against = nil
+
+						-- apparent_utility_results and indices are fine as-is
+					end
+				end
+			end
+		end
+	end
+	--print("dbg 17")
+	local f = io.open(Client.addon_path .. "data/gear_cache.lua", "w")
+	--print("dbg 18")
+	
+	f:write("return " .. serialize(cc))
+	--f:write("return " .. tostring(cc))
+	
+	--print("dbg 19")
+	io.close(f)
+	--print("dbg 20")
+	if Conf.showmsg.CACHE_SAVED_SUCCESS then
+		notice("Saved gear cache.")
+	end
+end
+
+function load_gear_cache()
+	local player = Client.get_player()
+	local cache_loaded, load_cache_ret = pcall(function() GEAR_CACHE = require("data/" .. player.name .. "_gear_cache") end)
+	if (not cache_loaded) or (type(GEAR_CACHE) ~= "table") then
+		error("Gear cache is corrupt. Use '//tm build' at your earliest convenience, or I won't be able to do much.")
+		GEAR_CACHE = {}
+		return false
+	end
+	
+	-- TODO: Transform indices back to references, names to objects, etc. See above comments in save. An don't forget .count[sloti]
+
+
+
+	if Conf.showmsg.CACHE_LOADED then
+		local job_level_count = 0
+		if GEAR_CACHE[Client.get_player().name] ~= nil then
+			for _,job in pairs(GEAR_CACHE[Client.get_player().name]) do
+				for _, level in pairs(job) do
+					job_level_count = job_level_count + 1
+				end
+			end
+			notice("Gear sets for " .. job_level_count .. " job-levels loaded from cache." )
+		else
+			notice("Welcome to Transmission! Use '//tm build' when you have a few minutes to create your gear sets.")
+		end
+	end
+	GEAR_CACHE = {}
+	warning("Clearing gear cache, because post-load object reconstruction is not properly coded yet.")
+end
+
 
 function async_rebuild_gear_cache_for_job(purposes_table, job_optional, level_optional)
 	local start_time = os.time()
@@ -716,36 +896,25 @@ function async_rebuild_gear_cache_for_job(purposes_table, job_optional, level_op
 	local player = Client.get_player()
 	local job = string.upper(job_optional or player.main_job)
 	local level = level_optional or player.jobs[job] or 0
+	--print("async_rebuild_gear_cache_for_job: job=" .. tostring(job) .. "; level=" .. tostring(level))
 	local cache = {}
 	for purpose_name,_ in pairs(purposes_table) do
 		prev_promise = prev_promise:next(
 			function(indexed_gear_set_list)
-				cache_store_results(indexed_gear_set_list)
+				cache_store_results(job, level, indexed_gear_set_list)
 				num_processed = num_processed + 1
-				--print(#indexed_gear_set_list .. " results. Next: " .. purpose_name)
 				if Conf.showmsg.DEBUG_REBUILD_JOB_PURPOSE then
 					print(job .. level .. " " .. num_processed .. "/" .. tcount(purposes_table) .. " " .. purpose_name)
 				end
-				--return Promise.reject("testing")
 				return async_build_gear_continuum(purpose_name, job, level)
 			end
-			--,
-			--function(err)
-			--	error(tostring(err))
-			--	return Promise.reject(err)
-			--end
 		)
 	end
-	--return prev_promise:next(function(x)
-	--	print(#x .. " results.")
-	--	print(num_processed .. " / " .. tcount(purposes_table))
-	--	return #x
-	--end)
 	return prev_promise:next(function(indexed_gear_set_list)
-		cache_store_results(indexed_gear_set_list)
+		cache_store_results(job, level, indexed_gear_set_list)
 		num_processed = num_processed + 1
 		if Conf.showmsg.DEBUG_REBUILD_JOB_FINISH then
-			print("async_rebuild_gear_cache_for_job() finished " .. num_processed .. "/" .. tcount(purposes_table) .. " purposes.")
+			notice("Built " .. job .. level .. "  " .. num_processed .. "/" .. tcount(purposes_table))
 		end
 		return true
 	end) --, function (err)
@@ -757,9 +926,9 @@ function async_rebuild_gear_cache_for_job(purposes_table, job_optional, level_op
 	--end)
 end
 
-function async_rebuild_gear_cache_for_multiple_jobs(purposes_table, optional_key_is_job_value_is_level_ala_get_player_dot_jobs)
+function async_rebuild_gear_cache_for_multiple_jobs(purposes_table, optional_key_job_value_level_or_all)
 	local player = Client.get_player()
-	local jobs = optional_key_is_job_value_is_level_ala_get_player_dot_jobs or player.jobs
+	local jobs = optional_key_job_value_level_or_all or player.jobs
 	local prev_promise = Promise.resolve({})
 	local jpcount = 0
 	for job, level in pairs(jobs) do
@@ -776,3 +945,38 @@ function async_rebuild_gear_cache_for_multiple_jobs(purposes_table, optional_key
 		return jpcount
 	end)
 end
+
+function async_rebuild_gear_cache_all(purposes_table)
+	local player = Client.get_player()
+	local cap_levels = {20, 25, 30, 40, 50, 60, 75, 99}
+	local current_is_cap = false
+	local prev_promise = Promise.resolve({})
+	local jpcount = -1
+	for job, max_level in pairs(player.jobs) do
+		current_is_cap = false
+		for _, cap in pairs(cap_levels) do
+			if cap <= max_level then
+				prev_promise = prev_promise:next(function(count)
+					jpcount = jpcount + count
+					return async_rebuild_gear_cache_for_job(purposes_table, job, cap)
+				end)
+			end
+			if cap == max_level then
+				current_is_cap = true
+			end
+		end
+		if not current_is_cap then
+			prev_promise = prev_promise:next(function(count)
+				jpcount = jpcount + count
+				return async_rebuild_gear_cache_for_job(purposes_table, job, max_level)
+			end)
+		end
+	end
+	return prev_promise:next(function(count)
+		jpcount = jpcount + count
+		return jpcount
+	end)
+end
+
+
+load_gear_cache()

@@ -254,6 +254,7 @@ item_mods_data = nil
 
 
 function R.apply_item_mods(mod_accum, item)
+	if type(R.item_mods[item.id]) ~= "table" then return end
 	for mod_id,mod_amount in pairs(R.item_mods[item.id]) do
 		mod_accum[mod_id] = mod_accum[mod_id] or 0
 		mod_accum[mod_id] = mod_accum[mod_id] + mod_amount

@@ -186,18 +186,17 @@ local function rebuild(args)
 	-- Test to find a specific point of failure
 	local test_purposes =
 	{
-		--auto_attack = PURPOSES.auto_attack,
-		MND = PURPOSES.MND,
-		INT = PURPOSES.INT,
-		GARDENING_WILT_BONUS = PURPOSES.GARDENING_WILT_BONUS,
-		--auto_attack = PURPOSES.auto_attack,
-		LIGHTDEF = PURPOSES.LIGHTDEF,
-		LIGHT_ARTS_SKILL = PURPOSES.LIGHT_ARTS_SKILL,
-		LIGHT_ARTS_EFFECT =  PURPOSES.LIGHT_ARTS_EFFECT,
-		LIGHT_ARTS_REGEN = PURPOSES.LIGHT_ARTS_REGEN,
+		auto_attack = PURPOSES.auto_attack,
+		--MND = PURPOSES.MND,
+		--INT = PURPOSES.INT,
+		--GARDENING_WILT_BONUS = PURPOSES.GARDENING_WILT_BONUS,
+		--LIGHTDEF = PURPOSES.LIGHTDEF,
+		--LIGHT_ARTS_SKILL = PURPOSES.LIGHT_ARTS_SKILL,
+		--LIGHT_ARTS_EFFECT =  PURPOSES.LIGHT_ARTS_EFFECT,
+		--LIGHT_ARTS_REGEN = PURPOSES.LIGHT_ARTS_REGEN,
 	}
-	--local P = test_purposes
-	local P =  PURPOSES
+	local P = test_purposes
+	--local P =  PURPOSES
 
 	if level ~= nil then
 		when_finished = async_rebuild_gear_cache_for_job(P, job, level)
@@ -206,7 +205,10 @@ local function rebuild(args)
 		when_finished = async_rebuild_gear_cache_for_multiple_jobs(P)
 	end
 	when_finished:next(
-		function(trash)
+		function(count)
+			--print("SAVING GEAR CACHE")
+			save_gear_cache()
+			--print("SAVED GEAR CACHE")
 			if Conf.showmsg.REBUILD_FINISH then
 				notice("Rebuild finished!")
 			end
@@ -214,7 +216,7 @@ local function rebuild(args)
 	--):catch(
 	,
 		function(err)
-			error("While doing a rebuild: " .. tostring(err))
+			error("During build: " .. tostring(err))
 		end
 	)
 end
@@ -265,6 +267,20 @@ handle_command = function(...) --event_name, ...)
 		local eval_func = loadstring(eval_str)
 		if eval_func ~= nil then print(eval_func())
 		else error("Invalid lua")
+		end
+	elseif subcommand == "cc" then
+		if (not LAST_CLEAR_CACHE_COMMAND) or (os.difftime(os.time(), LAST_CLEAR_CACHE_COMMAND) > Conf.CLEAR_CACHE_COMMAND_CONFIRMATION_TIMEOUT_SECONDS) then
+			LAST_CLEAR_CACHE_COMMAND = os.time()
+			warning("This will erase the gear set cache, requiring a possibly lengthy '//tm build' before any gear changing can occur again. This should only be used in case of load errors. Issue the command again within " .. Conf.CLEAR_CACHE_COMMAND_CONFIRMATION_TIMEOUT_SECONDS .. " seconds to confirm.")
+		else
+			if args[2] == nil then
+				GEAR_CACHE = {}
+			else
+				if not is_empty(GEAR_CACHE[args[2] ]) then
+					GEAR_CACHE[args[2] ] = {}
+				end
+			end
+			save_gear_cache()
 		end
 	else
 		print(...)

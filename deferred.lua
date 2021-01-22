@@ -47,6 +47,9 @@ local function finish(deferred, state)
 			f:reject(deferred.value)
 		end
 	end
+	if (#deferred.queue == 0 and state == REJECTED) then
+		error("Unhandled promise rejection: " .. tostring(deferred.value))
+	end
 	deferred.state = state
 end
 

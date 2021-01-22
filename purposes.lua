@@ -61,8 +61,8 @@ local function atomic_stat(alias)
 	return atom
 end
 
-r.auto_attack = 
-	{
+r.auto_attack = {
+	
 		name = "auto_attack",
 		num_of_dimensions = 3, -- Could possibly make this a table that describes the dimensions, and if you want the number, just get the length of the table
 		dimension_names = { "Attack", "Accuracy", "Haste"},
@@ -262,7 +262,6 @@ r.dark =
 }
 
 ]]
-
 
 -- Instantiate an atomic purpose for each mod so it can be iterated for things like rebuild_gear_cache()
 for k,v in pairs(modifiers) do

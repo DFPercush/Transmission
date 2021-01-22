@@ -43,6 +43,7 @@ function tcount(some_table)
 	local ret = 0
 	-- leaving this out might help find some other problems
 	--if type(some_table) ~= "table" then return 0 end
+	if type(some_table) ~= "table" then return 0 end
 	for k,v in pairs(some_table) do
 		if type(v) ~= "function" then
 			ret = ret + 1
@@ -92,11 +93,25 @@ function tostring(x, depth)
 		if (x == {}) then
 			return "{}"
 		end
-		out = out .. "\n" .. padding .. "{\n"
-		for k, v in pairs(x) do
-			out = out .. padding .. pad_per_level .. tostring(k, depth+1) .. " = " .. tostring(v, depth+1) .. "\n"
+		if #x == tcount(x) then
+			out = out .. "{"
+			for i = 1, #x do
+				out = out .. tostring(x[i]) .. ","
+			end
+			out = out .. "}"
+			--if depth > 1 then out = out .. "," end
+		else
+			out = out .. "\n" .. padding .. "{\n"
+			for k, v in pairs(x) do
+				if type(k) == "number" then
+					out = out .. padding .. pad_per_level .. "[" .. tostring(k, depth+1) .. "] = " .. tostring(v, depth+1) .. "\n"
+				else
+					out = out .. padding .. pad_per_level .. tostring(k, depth+1) .. " = " .. tostring(v, depth+1) .. "\n"
+				end
+			end
+			out = out .. padding .. "}"
+			--if depth > 1 then out = out .. "," end
 		end
-		out = out .. padding .. "}"
 		return out
 	else
 		return old_tostring(x)
@@ -122,6 +137,87 @@ function print(thing)
 	end
 	if (Client ~= nil) then	Client.add_to_chat(204, out)
 	else console_print(msg)
+	end
+end
+
+function stale_function()
+	error("Tried to call a stale function in serialized data. Object was not reconstructed properly.")
+end
+
+function serialize(x, depth)
+	local pad_per_level = "" -- "  "
+	local out = ""
+	local padding = ""
+	if (depth == nil) then
+		--print("depth = nil at " .. debug.traceback())
+		depth = 1
+	--elseif depth == 1 then
+	--	print("depth = nil at " .. debug.traceback())
+	else
+		for i = 1, depth - 1, 1 do
+			padding = padding .. pad_per_level
+		end
+	end
+	local ty = type(x)
+	if ty == "nil" then
+		return "nil"
+	elseif ty == "number" then
+		return old_tostring(x)
+	elseif ty == "string" then
+		return '\"' .. x .. '\"'
+	elseif ty == "function" then
+		--error("Can not serialize a function")
+		return "stale_function"
+	--elseif ty == "boolean" then
+	--	if x then
+	--		return "true"
+	--	else
+	--		return "false"
+	--	end
+	elseif ty == "table" then
+		-- if (x == {}) then  -- references!
+		if (is_empty(x)) then
+			return "{}"
+		end
+		if false then
+		elseif #x == tcount(x) then
+			out = out .. "{"
+			for i = 1, #x do
+				out = out .. serialize(x[i], depth+1) .. ","
+			end
+			out = out .. "}"
+			--if depth > 1 then out = out .. "," end
+		elseif #x + 1 == tcount(x) and x[0] ~= nil then
+			out = out .. "{"
+			for i = 1, #x do
+				out = out .. serialize(x[i], depth+1) .. ","
+			end
+			out = out .. "[0]=" .. serialize(x[0], depth+1) .. ","
+			out = out .. "}"
+			--if depth > 1 then out = out .. "," end
+		else
+			out = out .. "\n" .. padding .. "{\n"
+			for k, v in pairs(x) do
+				local kstr
+				if type(k) == "number" then
+					kstr = "[" .. k .. "]"
+					--out = out .. padding .. pad_per_level .. "[" .. k .. "] = " .. serialize(v, depth+1) .. "\n"
+				elseif type(k) == "string" then
+					--kstr = k "\"" .. k .. "\""
+					kstr = k
+					--out = out .. padding .. pad_per_level .. k .. " = " .. serialize(v, depth+1) .. "\n"
+				else
+					kstr = serialize(k, depth+1)
+					--out = out .. padding .. pad_per_level .. serialize(k, depth+1) .. " = " .. serialize(v, depth+1) .. "\n"
+				end
+				out = out .. padding .. pad_per_level .. kstr .. "=" .. serialize(v, depth+1) .. ",\n"
+			end
+			out = out .. padding .. "}"
+			--if depth > 1 then out = out .. "," end
+		end
+		return out
+	else
+		return old_tostring(x)
 	end
 end
 
@@ -339,4 +435,35 @@ function mirror(kv_to_vk)
 		end
 		return s
 	end
+end
+
+function insert_unique(t, v, optional_equals_function)
+	for i = 1, #t do
+		if optional_equals_function and optional_equals_function(t[i], v) then return end
+		if t[i] == v then return end
+	end
+	table.insert(t, v)
+end
+
+function is_empty(t)
+	return (tcount(t) == 0)
+end
+
+function deep_copy(t, predicate_takes_args_value_comma_key)
+	local pr = predicate_takes_args_value_comma_key
+	if type(t) ~= "table" then
+		return t
+		--if predicate_takes_args_value_comma_key(t) then
+		--	return t
+		--else
+		--	return nil
+		--end
+	end
+	local r = {}
+	for k,v in pairs(t) do
+		if pr(v,k) then
+			r[deep_copy(k, pr)] = deep_copy(v, pr)
+		end
+	end
+	return r
 end
