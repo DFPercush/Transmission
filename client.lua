@@ -18,13 +18,34 @@ if (windower ~= nil) then
 		if (set.categorized_gear_list ~= nil) then
 			set = set.dereference() -- numerical indices
 		end
-		for slot_id, item in pairs(set) do
-			local inv_index = item.slot
-			local slot = slot_id
-			local bag = Client.item_utils.bag_double_map[string.lower(item.storage)]
-			windower.ffxi.set_equip(inv_index, slot, bag)
-		end
-	end
+		local equipment_list = Client.get_all_equipment()
+		for slot_id, stale_item in pairs(set) do
+			-- TODO: when to skip first
+			--if tcount(set, function(x) return x.id == stale_item.id end) > 1
+			local item, accessible, skip_first
+			if type(stale_item) == "table" and stale_item.id ~= nil then
+				if (slot_id ==  1 and set[ 1].id == set[ 0].id) or
+				(slot_id == 12 and set[12].id == set[11].id) or
+				(slot_id == 14 and set[14].id == set[13].id)
+				then
+					skip_first = true
+				else
+					skip_first = false
+				end
+				item,accessible = Client.item_utils.find_item(stale_item.id, equipment_list, skip_first)
+				if accessible then
+					local inv_index = item.slot
+					local slot = slot_id
+					local bag = Client.item_utils.bag_double_map[string.lower(item.storage)]
+					windower.ffxi.set_equip(inv_index, slot, bag)
+				elseif (item ~= nil) then
+					error(Client.item_utils.get_item_name(item) .. " is not accessible.")
+				else
+					error("Unknown item in set")
+				end -- if/else accessible
+			end -- if valid item id
+		end -- for slot
+	end -- fn equip_set()
 elseif (ashita ~= nil) then
 end
 

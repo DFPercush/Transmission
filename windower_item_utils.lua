@@ -32,30 +32,32 @@ local job_flags = R.flags.job_flags
 local job_index = R.flags.job_index
 
 function R.get_all_items()
-	local bags = Client.get_items()
+	local bags = windower.ffxi.get_items()
 	local ret = {}
 	for bagName,bag in pairs(bags) do
-		for _, item in pairs(bag) do
-			if type(item) == 'table' and item.id ~= nil and item.id > 0 then
-				if res.items[item.id] ~= nil
-				--and (res.items[item.id].category == "Armor" or res.items[item.id].category == "Weapon")
-				then
-					--ret[item.id] = item
-					--ret[item.id].storage = bagName
-					
-					local nextIndex = #ret
-					ret[nextIndex] = shallow_copy(item)
-					ret[nextIndex].storage = bagName
-				end
-			end
-		end
-	end
+		if (bagName == "inventory") or (bagName == "wardrobe") or (bagName == "wardrobe2") or (bagName == "wardrobe3") or (bagName == "wardrobe4") then
+			for _, item in pairs(bag) do
+				if type(item) == 'table' and item.id ~= nil and item.id > 0 then
+					if res.items[item.id] ~= nil
+					--and (res.items[item.id].category == "Armor" or res.items[item.id].category == "Weapon")
+					then
+						--ret[item.id] = item
+						--ret[item.id].storage = bagName
+						
+						local nextIndex = #ret
+						ret[nextIndex] = shallow_copy(item)
+						ret[nextIndex].storage = bagName
+					end
+				end -- if valid item
+			end -- for item in bag
+		end -- if right type of inventory
+	end -- for bags
 	return ret
 end
 
 function R.get_all_equipment()
 	local ret = {}
-	for id, item in pairs(get_all_items()) do
+	for id, item in pairs(R.get_all_items()) do
 		if res.items[item.id] ~= nil
 		 and (res.items[item.id].category == "Armor" or res.items[item.id].category == "Weapon")
 		 then
@@ -349,5 +351,46 @@ function R.create_indexed_set(categorized_gear_list_param, indices_param, purpos
 	end
 	return indexed_set
 end
+
+function R.find_item(id, equipment_list, skip_first) -- Returns item_table, accessible_boolean
+	local seen_first = false
+	for i = 1, #equipment_list do
+		if equipment_list[i].id == id then
+			if skip_first and not seen_first then
+				seen_first = true
+			elseif skip_first and seen_first then
+				return equipment_list[i]
+			else
+				return equipment_list[i]
+			end
+		end
+	end
+end
+
+--[[
+function R.remap_items(optional_job_string_or_categorized_gear_list_table)
+	local arg = optional_job_string_or_categorized_gear_list_table
+	local itemid
+	local all_equipment = R.get_all_equipment()
+	local accessible_equipment = R.get_equippable_equipment()
+
+	if type(arg) == "table" then
+		for sloti = 0, 15 do
+			for i,item in pairs(arg[sloti]) do
+				if type(item) == "number" then 
+					itemid = item
+				elseif type(item) == "table" then
+					itemid = item.id
+				else itemid = 0
+				end
+
+			end -- for item
+		end -- for slot
+	elseif type(arg) == "string" then
+	elseif arg == nil then
+	end
+end
+]]
+
 
 return R

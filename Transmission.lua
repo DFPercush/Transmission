@@ -14,6 +14,29 @@ _addon.author  = 'DFPercush'
 _addon.version = '0.0.1'
 _addon.commands = {'tm', 'transmission'}
 
+print("Lua version " .. _VERSION)
+
+-- Override lua's default error handling to provide a stack trace.
+lua_pcall = pcall
+pcall = function(fn, ...)
+	local co = coroutine.create(fn)
+	local ok, ret = coroutine.resume(co, ...)
+	if not ok then
+		local stack_depth = 0
+		while debug.getinfo(co, stack_depth + 3) do
+
+		end
+		while debug.getinfo(stack_depth + 3) do
+			stack_depth = stack_depth + 1
+		end
+		ret = ret .. "\n" .. "Call depth: " .. stack_depth .. ", " .. debug.traceback(co) .. debug.traceback():sub(16)
+	end
+	coroutine.close(co)
+	return ok, ret
+
+	-- Only works in lua version > 5.2
+	--return xpcall(fn, debug.traceback, ...)
+end
 
 require("data/settings")
 
@@ -55,7 +78,9 @@ end)
 
 
 -- Third party libraries
---local Promise = require("deferred")
+--local Promise = require("deferred") -- Uses recursion to resolve and overflows the stack, not suitable for this application
+
+Promise = require("promise")  -- my own thing
 
 -- This addon
 require('util')
@@ -114,7 +139,7 @@ function build_auto_attack()
 	--coroutine.schedule(function() p:resolve() end, .1)
 	--if true then return end
 	local purpose = PURPOSES.auto_attack
-	return async_build_gear_continuum('auto_attack'):next(
+	local ret = async_build_gear_continuum('auto_attack'):next(
 		function(result)
 			print(" ------- DING, FRIES ARE DONE -------")
 			print("result is a " .. type(result)) -- .. " : " .. tostring(result))
@@ -161,6 +186,7 @@ function build_auto_attack()
 	):catch(function (why)
 		error("Calculation interrupted: " .. tostring(why))
 	end)
+	return ret, 0 -- trash to avoid tail call
 end
 
 local function rebuild(args)
@@ -169,7 +195,7 @@ local function rebuild(args)
 	--print("rebuild() args = " .. tostring(args))
 	if type(args[2]) == "string" then
 		job = string.upper(args[2])
-		notice_str = notice_str .. " for " .. job
+		notice_str = notice_str .. " " .. job
 	end
 	if type(args[3]) ~= nil then
 		level = tonumber(args[3]) or Client.get_player().jobs[job] or 0
@@ -295,17 +321,5 @@ end
 Client.register_event('addon_command', handle_command)
 --Client.register_event("action",function(action) print(action) end)
 
---[[
-print("ravg test")
-local RollAvg = require("rolling_average")
-local ra = RollAvg.new()
-print(ra.get_average())
-ra.set_capacity(4)
-for x = 1,15 do
-	ra.add(x)
-	print(x .. " : " .. ra.get_average())
-end
-]]
 
--- TODO: print some information about gear cache
-notice("Loaded!")
+notice("Ready!")

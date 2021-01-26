@@ -48,6 +48,8 @@ local function finish(deferred, state)
 		end
 	end
 	if (#deferred.queue == 0 and state == REJECTED) then
+		-- TODO: Yeah I don't know where this would need to happen, but how to detect unhandled rejections?
+		-- This block seems to run even if there is a catch() later down the chain, at least sometimes.
 		error("Unhandled promise rejection: " .. tostring(deferred.value))
 	end
 	deferred.state = state
@@ -65,6 +67,7 @@ local function promise(deferred, next, success, failure, nonpromisecb)
 	if type(deferred) == 'table' and type(deferred.value) == 'table' and isfunction(next) then
 		local called = false
 		local ok, err = pcall(next, deferred.value, function(v)
+		--local ok, err = xpcall(next, debug.traceback, deferred.value, function(v)
 			if called then return end
 			called = true
 			deferred.value = v
@@ -100,8 +103,10 @@ local function fire(deferred)
 		local v
 		if deferred.state == RESOLVING and isfunction(deferred.success) then
 			ok, v = pcall(deferred.success, deferred.value)
+			--ok, v = xpcall(deferred.success, debug.traceback, deferred.value)
 		elseif deferred.state == REJECTING and isfunction(deferred.failure) then
 			ok, v = pcall(deferred.failure, deferred.value)
+			--ok, v = xpcall(deferred.failure, debug.traceback, deferred.value)
 			if ok then
 				deferred.state = RESOLVING
 			end
@@ -118,6 +123,7 @@ local function fire(deferred)
 
 		if deferred.value == deferred then
 			deferred.value = pcall(error, 'resolving promise with itself')
+			--deferred.value = xpcall(error, debug.traceback, 'resolving promise with itself')
 			return finish(deferred)
 		else
 			promise(deferred, next, function()
@@ -190,6 +196,7 @@ function M.new(options)
 	if isfunction(options) then
 		local d = M.new()
 		local ok, err = pcall(options, d)
+		--local ok, err = xpcall(options, debug.traceback, d)
 		if not ok then
 			d:reject(err)
 		end

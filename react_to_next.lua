@@ -1,6 +1,6 @@
 
 require('client')
-local Promise = require("deferred")
+--local Promise = require("deferred")
 local Err = require("errors")
 
 function react_to_next(event_name, predicate) --, reaction)

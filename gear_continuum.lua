@@ -1,5 +1,5 @@
 local restricted_slots = require("restricted_slots")
-local Promise = require("deferred")
+--local Promise = require("deferred")
 
 GEAR_CACHE = {}
 --[[
@@ -92,7 +92,7 @@ local function filter_relevant(equipment_list, purpose_name)
 
 
 	-- We now have a list of all equipment that has anything to do with purpose.
-	return ret
+	return ret, 0 -- trash to avoid tail call
 end
 
 
@@ -702,12 +702,14 @@ function async_build_gear_continuum(purpose_name, job_optional, level_optional)
 		notice("Estimated permutations for " .. purpose_name .. ": " .. total_permutations_estimate)
 	end
 	periodic_permute(cur_indices, {}, Conf.PERMUTE_BATCH_SIZE, 0) --, done_callback)
-	return done_promise:next(function(results)
+	local ret = done_promise:next(function(results)
+		--print("done_promise:next()")
 		REBUILD_IN_PROGRESS = false
 		CANCEL_REBUILD = nil
 		return results
 		--return Promise.resolve(results)
 	end)
+	return ret
 end
 
 
@@ -743,26 +745,35 @@ local function categorized_gear_lists_are_equal(a, b)
 end
 
 
--- Assumes the results are all from a single purpose, on a single job, at a particular level
+-- Assumes indexed_gear_set_list are all results from a single purpose, on a single job, at a particular level.
+-- In other words, they all reference the same categorized_gear_list
 local function cache_store_results(job, level, indexed_gear_set_list)
-	if (#indexed_gear_set_list == 0) then return end
+	if type(indexed_gear_set_list) ~= "table" or (#indexed_gear_set_list == 0) then return end
+	
+	-- Make sure the set has at least one item in it, otherwise don't store anything
+	local max_index = 0
+	--local intentional_error = indexed_gear_set_list.indices[1]
+	for set_index, indexed_gear_set in ipairs(indexed_gear_set_list) do
+		for sloti=0,15 do
+			if indexed_gear_set.indices[sloti] > max_index then
+				max_index = indexed_gear_set.indices[sloti]
+			end
+		end
+	end
+	if max_index == 0 then return end
+
 	local player = Client.get_player()
-	GEAR_CACHE[player.name] = GEAR_CACHE[player.name] or {}
-	GEAR_CACHE[player.name][job] = GEAR_CACHE[player.name][job] or {}
-	GEAR_CACHE[player.name][job][level] = GEAR_CACHE[player.name][job][level] or {}
+	GEAR_CACHE[job] = GEAR_CACHE[job] or {}
+	GEAR_CACHE[job][level] = GEAR_CACHE[job][level] or {}
 	local purpose_name = indexed_gear_set_list[1].purpose_checked_against.name
-	GEAR_CACHE[player.name][job][level][purpose_name] = {} -- Clear previous data
-	local cache = GEAR_CACHE[player.name][job][level][purpose_name]
+	GEAR_CACHE[job][level][purpose_name] = {} -- Clear previous data
+	local cache = GEAR_CACHE[job][level][purpose_name]
 	cache.categorized_gear_lists = {}
 	cache.indexed_gear_set_list = indexed_gear_set_list
 	for i,indexed_gear_set in pairs(indexed_gear_set_list) do
-		--table.insert(GEAR_CACHE[player.name][job][level][purpose_name], indexed_gear_set)
-		--table.insert(cache, indexed_gear_set_list)
-
 		insert_unique(cache.categorized_gear_lists, indexed_gear_set.categorized_gear_list, categorized_gear_lists_are_equal)
 	end
 end
-
 
 
 function save_gear_cache()
@@ -772,9 +783,11 @@ function save_gear_cache()
 	if Conf.showmsg.CACHE_SAVE_START then
 		notice("Saving gear cache...")
 	end
-	local cc = deep_copy(GEAR_CACHE, function(v) return type(v) ~= "function" end) -- cache copy
+	-- copy cache and strip functions
+	local cc = deep_copy(GEAR_CACHE, function(v) return type(v) ~= "function" end)
 	--print("dbg 2")
-	for player_name, player_data in pairs(cc) do
+	--for player_name, player_data in pairs(cc) do
+	local player_data = cc
 		--print("dbg 3")
 		for job_name, job_data in pairs(player_data) do
 			--print("dbg 4")
@@ -802,7 +815,7 @@ function save_gear_cache()
 							--print("dbg 8")
 							for item_index, item in pairs(slot_items) do
 								--print("dbg 9")
-								--print("GEAR_CACHE[\"" .. player_name .. "\"][\"" .. job_name .. "\"][" .. level .. "][\"" .. purpose_name .. "\"].categorized_gear_list[" .. iGearList .. "][" .. sloti .. "]")
+								--print("GEAR_CACHE[\"" .. job_name .. "\"][" .. level .. "][\"" .. purpose_name .. "\"].categorized_gear_list[" .. iGearList .. "][" .. sloti .. "]")
 								--print("item = " .. tostring(item))
 								if type(item) == "table" then
 									slot_items[item_index] = item.id
@@ -838,16 +851,19 @@ function save_gear_cache()
 						indexed_gear_set.purpose_checked_against = nil
 
 						-- apparent_utility_results and indices are fine as-is
-					end
-				end
-			end
-		end
-	end
+					end -- for gearset list index
+				end -- for purpose
+			end -- for level
+		end -- for job
+	--end  -- for player
 	--print("dbg 17")
-	local f = io.open(Client.addon_path .. "data/gear_cache.lua", "w")
+	local filename = Client.addon_path .. "data/" .. Client.get_player().name .. "_gear_cache.lua"
+	local save_data = "return " .. serialize(cc)
+	--print("writing " .. filename)
+	local f = io.open(filename, "w")
 	--print("dbg 18")
 	
-	f:write("return " .. serialize(cc))
+	f:write(save_data)
 	--f:write("return " .. tostring(cc))
 	
 	--print("dbg 19")
@@ -858,23 +874,65 @@ function save_gear_cache()
 	end
 end
 
+
 function load_gear_cache()
 	local player = Client.get_player()
 	local cache_loaded, load_cache_ret = pcall(function() GEAR_CACHE = require("data/" .. player.name .. "_gear_cache") end)
-	if (not cache_loaded) or (type(GEAR_CACHE) ~= "table") then
-		error("Gear cache is corrupt. Use '//tm build' at your earliest convenience, or I won't be able to do much.")
+	if (not cache_loaded) then
+		error("Error loading gear cache. Use '//tm build' at your earliest convenience, or I won't be able to do much.\n" .. load_cache_ret)
+	elseif(type(GEAR_CACHE) ~= "table") then
+		error("Gear cache is corrupt. Use '//tm build' at your earliest convenience, or I won't be able to do much.\n")
 		GEAR_CACHE = {}
 		return false
 	end
 	
-	-- TODO: Transform indices back to references, names to objects, etc. See above comments in save. An don't forget .count[sloti]
+	-- Transform indices back to references, names to objects, etc. See above comments in save fn. An don't forget .count[sloti]
+	local accessible_equipment = Client.item_utils.get_equippable_equipment()
+	local all_equipment = Client.item_utils.get_all_equipment()
+	
+	--print("--------\n" .. tostring(Client.resources.slots) .. "\n---------")
+	for job_name, job_data in pairs(GEAR_CACHE) do
+		for level, level_data in pairs(job_data) do
+			for purpose_name, purpose_data in pairs(level_data) do
+				for icat, categorized_gear_list in pairs(purpose_data.categorized_gear_lists) do
+					categorized_gear_list.count = {}
+					--for sloti, slot_items in pairs(categorized_gear_list) do
+					for sloti = 0, 15 do
+						local slot_items = categorized_gear_list[sloti]
+						local slot_count = 0
+						for slot_item_index, slot_item in pairs(slot_items) do
+							-- For now, just fill in the id, it's all that matters for referencing things
+							slot_items[slot_item_index] = { id = slot_items[slot_item_index] }
+							slot_count = slot_count + 1
+						end -- for slot items
+						categorized_gear_list.count[sloti] = slot_count
+						--print(debug.traceback())
+						--print(tcount(categorized_gear_list) .. "cat")
+						--print("Client.resources is a " .. type(Client.resources))
+						--print("Client.resources.slots is a " .. type(Client.resources.slots))
+						--print ("slot " .. sloti .. " " .. tostring(Client.resources.slots[sloti]))
+						categorized_gear_list[Client.resources.slots[sloti].en] = categorized_gear_list[sloti]
+					end -- for slot
+				end -- for categorized gear list
+
+				for igearset, indexed_gear_set in pairs(purpose_data.indexed_gear_set_list) do
+					purpose_data.indexed_gear_set_list[igearset] = Client.item_utils.create_indexed_set(
+						purpose_data.categorized_gear_lists[indexed_gear_set.categorized_gear_list_index],
+						indexed_gear_set.indices,
+						PURPOSES[indexed_gear_set.purpose_name],
+						indexed_gear_set.apparent_utility_results
+					)
+				end -- for indexed gear set
+			end -- for purpose
+		end -- for level
+	end -- for job
 
 
 
 	if Conf.showmsg.CACHE_LOADED then
 		local job_level_count = 0
-		if GEAR_CACHE[Client.get_player().name] ~= nil then
-			for _,job in pairs(GEAR_CACHE[Client.get_player().name]) do
+		if GEAR_CACHE ~= nil and tcount(GEAR_CACHE) > 0 then
+			for _,job in pairs(GEAR_CACHE) do
 				for _, level in pairs(job) do
 					job_level_count = job_level_count + 1
 				end
@@ -884,14 +942,14 @@ function load_gear_cache()
 			notice("Welcome to Transmission! Use '//tm build' when you have a few minutes to create your gear sets.")
 		end
 	end
-	GEAR_CACHE = {}
-	warning("Clearing gear cache, because post-load object reconstruction is not properly coded yet.")
+	--GEAR_CACHE = {}
+	--warning("Clearing gear cache, because post-load object reconstruction is not properly coded yet.")
 end
 
 
 function async_rebuild_gear_cache_for_job(purposes_table, job_optional, level_optional)
 	local start_time = os.time()
-	local prev_promise = Promise.resolve({})
+	local prev_promise = Promise.new() --resolve({})
 	local num_processed = -1  -- the empty value in that resolve ^ will increment to 0
 	local player = Client.get_player()
 	local job = string.upper(job_optional or player.main_job)
@@ -910,7 +968,7 @@ function async_rebuild_gear_cache_for_job(purposes_table, job_optional, level_op
 			end
 		)
 	end
-	return prev_promise:next(function(indexed_gear_set_list)
+	local ret = prev_promise:next(function(indexed_gear_set_list)
 		cache_store_results(job, level, indexed_gear_set_list)
 		num_processed = num_processed + 1
 		if Conf.showmsg.DEBUG_REBUILD_JOB_FINISH then
@@ -924,6 +982,8 @@ function async_rebuild_gear_cache_for_job(purposes_table, job_optional, level_op
 	--	--cache_results(r)
 	--	notice("Rebuild finished in " .. os.difftime(os.time(), start_time) .. " seconds")
 	--end)
+	prev_promise:resolve({})
+	return ret, 0 -- trash to avoid tail call
 end
 
 function async_rebuild_gear_cache_for_multiple_jobs(purposes_table, optional_key_job_value_level_or_all)
@@ -938,12 +998,13 @@ function async_rebuild_gear_cache_for_multiple_jobs(purposes_table, optional_key
 			return async_rebuild_gear_cache_for_job(purposes_table, job, level)
 		end)
 	end
-	return prev_promise:next(function(count)
+	local ret = prev_promise:next(function(count)
 		jpcount = jpcount + count
 		-- TODO: if Conf.showmsg.something then
 		notice("All done! " .. jpcount .. " job-purposes evaluated.")
 		return jpcount
 	end)
+	return ret, 0 -- trash to avoid tail call
 end
 
 function async_rebuild_gear_cache_all(purposes_table)
@@ -972,10 +1033,11 @@ function async_rebuild_gear_cache_all(purposes_table)
 			end)
 		end
 	end
-	return prev_promise:next(function(count)
+	local ret = prev_promise:next(function(count)
 		jpcount = jpcount + count
 		return jpcount
 	end)
+	return ret, 0 -- trash to avoid tail call
 end
 
 

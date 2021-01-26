@@ -39,14 +39,16 @@ function append(t1, t2)
 	return t1
 end
 
-function tcount(some_table)
+function tcount(some_table, optional_predicate_v_k)
 	local ret = 0
 	-- leaving this out might help find some other problems
 	--if type(some_table) ~= "table" then return 0 end
 	if type(some_table) ~= "table" then return 0 end
 	for k,v in pairs(some_table) do
 		if type(v) ~= "function" then
-			ret = ret + 1
+			if (optional_predicate_v_k == nil) or (optional_predicate_v_k(v,k)) then
+				ret = ret + 1
+			end
 		end
 	end
 	return ret
@@ -120,24 +122,36 @@ end
 
 -- TODO: This interacts with the game, probably shouldn't be in this file
 console_print = print
-function print(thing)
-	msg = tostring(thing)
-	local L = string.len(msg)
-	if (L <= 0) then return end
+function print_somewhere(stuff)
+	if Client and Client.add_to_chat then
+		Client.add_to_chat(204, stuff)
+	else
+		console_print(stuff)
+	end
+end
+
+function print(...)
+	local nargs = select("#", ...)
 	local out = ""
-	for i = 1, L, 1 do
-		if (msg[i] == "\n") then
-			if string.len(out) > 0 then
-				Client.add_to_chat(204, out)
-			end
-			out = ""
-		else
-			out = out .. tostring(msg[i])
-		end
-	end
-	if (Client ~= nil) then	Client.add_to_chat(204, out)
-	else console_print(msg)
-	end
+	for i=1,nargs do
+		local thing = select(i, ...)
+		local msg = tostring(thing)
+		local L = string.len(msg)
+		if (L <= 0) then return end
+		for i = 1, L, 1 do
+			local c = string.sub(msg, i, i)
+			--if (msg[i] == "\n") then
+			if c == "\n" then
+				if string.len(out) > 0 then
+				print_somewhere(out)
+				end
+				out = ""
+			else
+				out = out .. c --tostring(msg[i])
+			end -- if newline
+		end -- for char in string
+	end -- for arg
+	print_somewhere(out)
 end
 
 function stale_function()
@@ -145,7 +159,7 @@ function stale_function()
 end
 
 function serialize(x, depth)
-	local pad_per_level = "" -- "  "
+	local pad_per_level = "  " -- "  "
 	local out = ""
 	local padding = ""
 	if (depth == nil) then
@@ -461,9 +475,43 @@ function deep_copy(t, predicate_takes_args_value_comma_key)
 	end
 	local r = {}
 	for k,v in pairs(t) do
-		if pr(v,k) then
+		if (pr == nil) or (pr(v,k)) then
 			r[deep_copy(k, pr)] = deep_copy(v, pr)
 		end
 	end
 	return r
+end
+
+function keys(t)
+	local ret = {}
+	for k,v in pairs(t) do
+		ret[#ret+1] = k
+	end
+	return ret
+end
+
+function map(t, func_v_k)
+	local ret = {}
+	for k,v in pairs(t) do
+		local v2, k2 = func_v_k(v,k)
+		if k2 == nil and v2 ~= nil then k2 = k end
+		ret[k2] = v2
+	end
+	return ret
+end
+
+function filter(t, f)
+	local ret = {}
+	for k,v in pairs(t) do
+		if f(v) then ret[k] = v end
+	end
+	return ret
+end
+
+function reduce(t, init_value, func_v_k_accum)
+	local ret = init_value
+	for k,v in pairs(t) do
+		ret = func_v_k_accum(v,k,ret)
+	end
+	return ret
 end

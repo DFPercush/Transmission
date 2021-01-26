@@ -85,7 +85,9 @@ registry.melee_swing_by_player = {
 		elseif predicates.is_melee_miss(event) then
 			heuristics_system.cur().acc.add(0)
 		end
-		print(round(heuristics_system.cur().dmg.get_average()) .. " Damage per hit @ " .. round(heuristics_system.cur().acc.get_average() * 100) .. "% Accuracy")
+		if Conf.showmsg.AVERAGE_DAMAGE_ACCURACY then
+			print(round(heuristics_system.cur().dmg.get_average()) .. " Damage per hit @ " .. round(heuristics_system.cur().acc.get_average() * 100) .. "% Accuracy")
+		end
 	end
 }
 

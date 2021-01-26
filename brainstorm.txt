@@ -1,4 +1,8 @@
 
+. make promises cause a real error if they are rejected without being handled. 
+	/ as-is, they report an error, but continue executing.
+	  Where does windower put lua's original error() function?
+
 . From top of main file
 	-- stats_i_care_about_on("war", "auto_attack", "ws", "def" ...)
 		-- or ("rng", {ratt=100, racc=75, ...}, {exclude_list})
@@ -67,6 +71,7 @@ hit% = clamp(  0.75 + (acc - eva)/2  ,  0.2, 0.95)
 
 TODO: .en --> [LOCALE]
 
+. <Roach> excluding MDB and MDT effects, each blm's base damage can be approximated as (1+MAB/100)*floor(INT + ElementalMagicSkill/6)*3.5
 --------------------------
 Skree
 
