@@ -1,5 +1,7 @@
 Conf = 
 {
+	SEARCH_ALL_STORAGES = true,
+	
 	-- How often to notify of progress if it's a short job
 	SHORT_TERM_PROGRESS_REPORT_INTERVAL_SECONDS = 5,
 

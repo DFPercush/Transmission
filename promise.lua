@@ -356,6 +356,7 @@ end
 local function test02()
 	local outer = R.new(nil, nil, "outer")
 	local inner
+	--outer:resolve(1)
 	outer:next(
 		function(v)
 			print("outer n1")

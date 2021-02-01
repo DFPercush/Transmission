@@ -67,6 +67,46 @@ function heuristics_system.cur() --player, mob)
 	return r
 end
 
+function heuristics_system.using_item(itemid)
+	GEAR_CACHE = GEAR_CACHE or {}
+	GEAR_CACHE.last_used = GEAR_CACHE.last_used or {}
+	local now = os.time()
+	GEAR_CACHE.last_used[itemid] = now
+end
+
+function heuristics_system.get_least_used_equipment(all_items_flat_list)
+	local ret = {}
+	local sorting = {}
+	if GEAR_CACHE and GEAR_CACHE.last_used then
+		for itemid, time in pairs(GEAR_CACHE.last_used) do
+			table.insert(sorting, {itemid=itemid, time=time})
+		end
+		table.sort(sorting,
+			function(a,b)
+				return (a.time - b.time)
+			end
+		)
+	end
+	--table.sort()
+	--local all = Client.item_utils.get_all_items() -- bad dependency
+	local equippable_items_by_id = {}
+	for _, item in pairs(all_items_flat_list) do
+		--if find({"inventory", "wardrobe", "wardrobe2", "wardrobe4"}, ((type(item)=="table" and item.storage) or "?"))
+		if find({"inventory", "wardrobe", "wardrobe2", "wardrobe4"}, item.storage) then
+			equippable_items_by_id[item.id] = item
+			if GEAR_CACHE.last_used[item.id] == nil then
+				table.insert(ret, item)
+			end
+		end
+	end
+	for _, used in ipairs(sorting) do
+		if equippable_items_by_id[used.itemid] then
+			table.insert(ret, equippable_items_by_id[used.itemid])
+		end
+	end
+end
+
+
 -------------------------------------------------------------------------------------------------
 local predicates = heuristics_system.event_system.predicates
 local registry = heuristics_system.event_registry
@@ -90,6 +130,29 @@ registry.melee_swing_by_player = {
 		end
 	end
 }
+
+
+-------------------------------------------------------------------------------------------------
+
+
+-- Equipment usage data, for determining what to swap out to storage
+local function monitor_equipment_usage_coro()
+	if Client.get_player().status ~= "zoning" then -- TODO: Status id numbers, it's not a string
+		local equip = Client.item_utils.get_current_equipment()
+		print(equip)
+		for i=0,15 do
+			local slot_name = string.lower(resources.slots[i].en):gsub(" ", "_")
+			local item = Client.system.ffxi.get_items(equip[slot_name .. "_bag"], equip[slot_name])
+			local itemid = (item and item.id) or 0
+			heuristics_system.using_item(itemid)
+		end
+	end
+	schedule(monitor_equipment_usage_coro, 1)
+end
+schedule(monitor_equipment_usage_coro, 1)
+-- TODO: Load from cache
+
+
 
 -------------------------------------------------------------------------------------------------
 

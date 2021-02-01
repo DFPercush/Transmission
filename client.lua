@@ -12,6 +12,8 @@ require('client_base')
 ]]
 
 if (windower ~= nil) then
+	require('chat')
+	require('logger')
 	Client.get_current_target = function() return Client.system.ffxi.get_mob_by_target("t") end
 	Client.get_current_battle_target = function() return Client.system.ffxi.get_mob_by_target("bt") end
 	Client.equip_set = function(set)

@@ -100,7 +100,9 @@ end
 
 
 local function get_relevant_gear(purpose_name, job_optional, level_optional)
-	local job = job_optional or Client.get_player().main_job
+	local player = Client.get_player()
+	local job = job_optional or player.main_job
+	local level = level_optional or player.main_job_level
 	return filter_relevant(Client.item_utils.get_equippable_equipment(job, level_optional), purpose_name)
 end
 
@@ -593,13 +595,20 @@ end
 
 
 --local function build_gear_continuum(gear_list, purpose_name, done_callback)
-function async_build_gear_continuum(purpose_name, job_optional, level_optional)
+function async_build_gear_continuum(purpose_name, job_optional, level_optional) --, all_storages_bool_optional)
 	local purpose = PURPOSES[purpose_name]
 	local player = Client.get_player()
 	local job = string.upper(job_optional or player.main_job)
 	local level = level_optional or player.jobs[job] or 0
 	-- TODO: might want to async this
-	local categorized_gear_list = filter_per_slot(categorize_gear_by_slot(get_relevant_gear(purpose_name, job, level)), purpose) -- TODO: pass a table instead of a name
+	local categorized_gear_list
+	--if Conf.SEARCH_ALL_STORAGES then
+	--	--categorized_gear_list = filter_per_slot(categorize_gear_by_slot(get_relevant_gear(purpose_name, job, level, all_storages_bool_optional)), purpose) -- TODO: pass a table instead of a name
+	--	local cat1 = categorize_gear_by_slot(filter_relevant(Client.item_utils.get_all_equipment(), purpose_name))
+	--	categorized_gear_list = filter_per_slot(cat1, purpose)
+	--else
+		categorized_gear_list = filter_per_slot(categorize_gear_by_slot(get_relevant_gear(purpose_name, job, level)), purpose) -- TODO: pass a table instead of a name
+	--end
 	local count_nil_storage = 0
 	local count_valid_storage = 0
 	----print(categorized_gear_list[1][1])

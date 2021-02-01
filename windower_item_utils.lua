@@ -1,5 +1,6 @@
 require('util')
 local windower_player_utils = require "windower_player_utils"
+local slips = require('slips')
 
 local R = {
 	flags = require('flags')
@@ -31,27 +32,73 @@ end
 local job_flags = R.flags.job_flags
 local job_index = R.flags.job_index
 
+function R.get_current_equipment()
+	local ret = windower.ffxi.get_items().equipment
+	for k,v in pairs(ret) do
+		for slotid, slot in pairs(res.slots) do
+			if string.lower(k) == string.lower(slot.en) then
+				ret[slotid] = v
+			end
+		end
+	end
+	return ret
+end
+
 function R.get_all_items()
 	local bags = windower.ffxi.get_items()
 	local ret = {}
 	for bagName,bag in pairs(bags) do
-		if (bagName == "inventory") or (bagName == "wardrobe") or (bagName == "wardrobe2") or (bagName == "wardrobe3") or (bagName == "wardrobe4") then
+		--if find(
+		--	{
+		--		"inventory",
+		--		"wardrobe",
+		--		"wardrobe2",
+		--		"wardrobe3",
+		--		"wardrobe4",
+		--	}, bagName)
+		--then
+		--if (bagName == "inventory") or (bagName == "wardrobe") or (bagName == "wardrobe2") or (bagName == "wardrobe3") or (bagName == "wardrobe4") then
+		--print("dbg 1")
+		if type(bag) == "table" then
+			--print("dbg 2")
 			for _, item in pairs(bag) do
+				--print("dbg 3")
 				if type(item) == 'table' and item.id ~= nil and item.id > 0 then
+					--print("dbg 4")
 					if res.items[item.id] ~= nil
 					--and (res.items[item.id].category == "Armor" or res.items[item.id].category == "Weapon")
 					then
+						--print("dbg 5")
+						--print(res.items[item.id].en)
 						--ret[item.id] = item
 						--ret[item.id].storage = bagName
 						
-						local nextIndex = #ret
+						local nextIndex = #ret + 1
 						ret[nextIndex] = shallow_copy(item)
 						ret[nextIndex].storage = bagName
+						--print("ret[" .. nextIndex .. "] = " .. res.items[item.id].en)
 					end
 				end -- if valid item
 			end -- for item in bag
 		end -- if right type of inventory
 	end -- for bags
+
+	--print("dbg 6")
+	--print("get_all_items() at " .. #ret .. " items before slips.")
+
+	local slips_all = slips.get_player_items()
+	for slip_id, slip_items in pairs(slips_all) do
+		local slip_name = "slip " .. (find(slips.storages, slip_id) or "?")
+		for _, itemid in pairs(slip_items) do
+			table.insert(ret, 
+			{
+				id = itemid,
+				storage = slip_name,
+			})
+		end
+	end
+
+	--print("get_all_items() returning " .. #ret .. " items.")
 	return ret
 end
 
@@ -59,12 +106,15 @@ function R.get_all_equipment()
 	local ret = {}
 	for id, item in pairs(R.get_all_items()) do
 		if res.items[item.id] ~= nil
-		 and (res.items[item.id].category == "Armor" or res.items[item.id].category == "Weapon")
-		 then
+			and (res.items[item.id].category == "Armor" or res.items[item.id].category == "Weapon")
+		then
 			--ret[id] = item
 			ret[#ret+1] = item
-		 end
+		--elseif res.items[item.id] ~= nil then
+		--	print("Excluding " .. res.items[item.id].en)
+		end
 	end
+	--print("get_all_equipment() returning " .. #ret .. " items.")
 	return ret
 end
 
@@ -94,8 +144,6 @@ function R.filter_in_equippable_storage(items)
 end
 
 function R.get_equippable_equipment(job_optional, level_optional)
-	--notice("Boop")
-	--notice("p1=" .. p1 .. "  p2=" .. p2)
 	local count = 0
 	local bags = windower.ffxi.get_items()
 	local player = Client.get_player()
@@ -103,27 +151,77 @@ function R.get_equippable_equipment(job_optional, level_optional)
 	local level = level_optional or player.jobs[job] or 0
 	local ret = {}
 	local num_added = 0
-	--print(bags)
-
-	--res.items:with("id",
-	--(RESOURCES.item_descriptions[id].en)
-
-
-	--for k,v in pairs(bags) do
-	--	if type(v) == 'table' then
-	--		print(k)
-	--	end
-	--end
-
-	-- temp
-	ar1 = "auto_attack"
 
 	-- categories are "Weapon", "Armor", "Usable", "General"
+
+	local all_equipment = R.get_all_equipment()
+	--print ("all_equipment = " .. tostring(all_equipment))
+	for _, item in pairs(all_equipment) do
+		local matching_inventory = 
+			(Conf.SEARCH_ALL_STORAGES and (find(
+				{
+					"inventory",
+					"wardrobe",
+					"wardrobe2",
+					"wardrobe3",
+					"safe",
+					"safe2",
+					"locker",
+					"storage",
+					"case",
+					"satchel",
+					"slip 1",
+					"slip 2",
+					"slip 3",
+					"slip 4",
+					"slip 5",
+					"slip 6",
+					"slip 7",
+					"slip 8",
+					"slip 9",
+					"slip 10",
+					"slip 11",
+					"slip 12",
+					"slip 13",
+					"slip 14",
+					"slip 15",
+					"slip 16",
+					"slip 17",
+					"slip 18",
+					"slip 19",
+					"slip 20",
+					"slip 21",
+					"slip 22",
+					"slip 23",
+					"slip 24",
+					"slip 25",
+					"slip 26",
+					"slip 27",
+					"slip 28",
+				}, item.storage)))
+			or (not Conf.SEARCH_ALL_STORAGES and find(
+				{
+					"inventory",
+					"wardrobe",
+					"wardrobe2",
+					"wardrobe3",
+				}, item.storage))
+		if matching_inventory and R.can_equip(item, job, level, player) then
+			table.insert(ret, shallow_copy(item))
+		end
+	end
+	
+	--print("get_equippable_equipment() returning " .. #ret .. " items.") -- .. debug.traceback())
+	--print(ret)
+
+	if true then return ret end
+	-- TODO: Clean up code
 
 	for bagName,bag in pairs(bags) do
 		--notice(len(bags) .. " bags")
 		--bag = windower.ffxi.get_items(bagId)
 		--print(bag)
+
 		if (bagName == "inventory") or (bagName == "wardrobe") or (bagName == "wardrobe2") or (bagName == "wardrobe3") or (bagName == "wardrobe4") then
 			for _, item in pairs(bag) do
 				if type(item) == 'table' and item.id ~= nil and item.id > 0 then
@@ -289,12 +387,12 @@ function R.get_item_name(item)
 	local item_id
 	if type(item) == "number" then
 		item_id = item
-	elseif (item ~= nil and item.id ~= nil) then
+	elseif (type(item) == "table" and item.id ~= nil) then
 		item_id = item.id
 	else
 		return "?"
 	end
-	return res.items[item_id].en
+	return (res.items[item_id] and res.items[item_id].en) or "?"
 end
 
 -- TODO: I don't think there's anything windower specific in this one.

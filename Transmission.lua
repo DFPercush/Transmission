@@ -14,7 +14,14 @@ _addon.author  = 'DFPercush'
 _addon.version = '0.0.1'
 _addon.commands = {'tm', 'transmission'}
 
+require("data/settings")
+
+
 print("Lua version " .. _VERSION)
+
+--------------------------------------
+--   Universally required globals   --
+--------------------------------------
 
 -- Override lua's default error handling to provide a stack trace.
 lua_pcall = pcall
@@ -24,7 +31,7 @@ pcall = function(fn, ...)
 	if not ok then
 		local stack_depth = 0
 		while debug.getinfo(co, stack_depth + 3) do
-
+			stack_depth = stack_depth + 1
 		end
 		while debug.getinfo(stack_depth + 3) do
 			stack_depth = stack_depth + 1
@@ -38,20 +45,6 @@ pcall = function(fn, ...)
 	--return xpcall(fn, debug.traceback, ...)
 end
 
-require("data/settings")
-
-
--- Abstraction layer
-require('client')
-PURPOSES = require("purposes") -- Depends on global Client; require client first
-local rolling_average = require "rolling_average"
-
--- Client (windower) components
--- TODO: Move to the client module...?
-require('chat')
-require('logger')
-local res = Client.resources
-resources = res
 __OUTSTANDING_COROUTINES__ = {}
 function schedule(f,t)
 	local id
@@ -69,17 +62,35 @@ function schedule(f,t)
 	id = coroutine.schedule(wrapper,t)
 	table.insert(__OUTSTANDING_COROUTINES__, id)
 end
+
+
+----------------------
+--   Dependencies   --
+----------------------
+
+-- Abstraction layer
+require('client')
+
+-- Would like to clump this with the schedule function, but it has to come after client
 Client.register_event('unload',function ()
 	for i, coroutine_id in pairs(__OUTSTANDING_COROUTINES__) do
 		coroutine.close(coroutine_id)
 	end
 end)
 
+PURPOSES = require("purposes") -- Depends on global Client; require client first
+local rolling_average = require "rolling_average"
+
+-- Client (windower) components
+-- TODO: Move to the client module...?
+
+local res = Client.resources
+resources = res
+
 
 
 -- Third party libraries
 --local Promise = require("deferred") -- Uses recursion to resolve and overflows the stack, not suitable for this application
-
 Promise = require("promise")  -- my own thing
 
 -- This addon
@@ -308,6 +319,15 @@ handle_command = function(...) --event_name, ...)
 			end
 			save_gear_cache()
 		end
+	elseif subcommand == "slips" then
+		local slips = require('slips')
+		--print(slips.storages)
+		--for k,v in pairs(slips.storages) do print(k .. ": " .. type(v)) end
+		print("slips.get_player_items() = " .. tostring(slips.get_player_items()))
+		--print("slips.storages = " .. tostring(slips.storages))
+		--slips.get_slip_number_by_id(slip_id)
+	elseif subcommand == "showequip" then
+		print(Client.item_utils.get_current_equipment())
 	else
 		print(...)
 	end
