@@ -494,8 +494,12 @@ function map(t, func_v_k)
 	local ret = {}
 	for k,v in pairs(t) do
 		local v2, k2 = func_v_k(v,k)
-		if k2 == nil and v2 ~= nil then k2 = k end
-		ret[k2] = v2
+		if k2 == nil then
+			k2 = k
+		end
+		if v2 ~= nil then
+			ret[k2] = v2
+		end
 	end
 	return ret
 end
@@ -514,4 +518,25 @@ function reduce(t, init_value, func_v_k_accum)
 		ret = func_v_k_accum(v,k,ret)
 	end
 	return ret
+end
+
+function quick_trace(separator)
+	separator = separator or ""
+	local f
+	local maxlevel = 1
+	local r = ""
+	repeat
+		maxlevel = maxlevel + 1
+		f = debug.getinfo(maxlevel, "Sln")
+	until not f
+	for level = maxlevel-1, 2, -1 do
+		f = debug.getinfo(level, "Snl")
+		if not f then break end
+		if f.name then
+			r = r .. f.name .. "():" .. f.currentline .. separator
+		else
+			r = r .. (f.short_src or "?") .. ":" .. f.currentline .. separator
+		end
+	end
+	return r
 end

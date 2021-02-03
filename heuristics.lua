@@ -139,7 +139,7 @@ registry.melee_swing_by_player = {
 local function monitor_equipment_usage_coro()
 	if Client.get_player().status ~= "zoning" then -- TODO: Status id numbers, it's not a string
 		local equip = Client.item_utils.get_current_equipment()
-		print(equip)
+		--print(equip)
 		for i=0,15 do
 			local slot_name = string.lower(resources.slots[i].en):gsub(" ", "_")
 			local item = Client.system.ffxi.get_items(equip[slot_name .. "_bag"], equip[slot_name])
