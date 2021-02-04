@@ -311,10 +311,11 @@ handle_command = function(...) --event_name, ...)
 			warning("This will erase the gear set cache, requiring a possibly lengthy '//tm build' before any gear changing can occur again. This should only be used in case of load errors. Issue the command again within " .. Conf.CLEAR_CACHE_COMMAND_CONFIRMATION_TIMEOUT_SECONDS .. " seconds to confirm.")
 		else
 			if args[2] == nil then
-				GEAR_CACHE = {}
+				--GEAR_CACHE = {}
+				init_gear_cache()
 			else
 				if not is_empty(GEAR_CACHE[args[2] ]) then
-					GEAR_CACHE[args[2] ] = {}
+					GEAR_CACHE.combos[args[2] ] = {}
 				end
 			end
 			save_gear_cache()

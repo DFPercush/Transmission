@@ -18,6 +18,20 @@ local ABORT = 6
 local ANY = 7
 local ALL = 8
 
+local throw_stack = {}
+local throw_index = 0
+
+local function settle_throw(ok, result, throw_index_before)
+	if throw_index > throw_index_before then
+		ok = false
+		result = throw_stack[throw_index]
+		while throw_index > throw_index_before do
+			throw_stack[throw_index] = nil
+			throw_index = throw_index - 1
+		end
+	end
+	return ok, result
+end
 
 local this_file = debug.getinfo(0, "S").source
 local promise_object_type = this_file .. "<Promise>"
@@ -71,9 +85,24 @@ local function chain(p)
 		
 		repeat_chain_element = false
 		
-		if cur.state == ABORT then return end
+		if cur.state == ABORT then
+			return
+		elseif cur.state == RESOLVING then
+			if is_promise(cur.inner) then
+				if cur.inner.state == RESOLVED then
+					cur.value = R.unwrap(cur.inner)
+					cur:finish()
+				elseif cur.inner.state == REJECTED then
+					cur.err = cur.inner.err
+					cur.state = REJECTED
+					cur:finish()
+				end
+			else
+				cur.value = cur.inner
+				cur:finish()
+			end
 		--if cur.state == WAITING and #(cur.upstream) > 0 then
-		if not cur.finished then
+		elseif not cur.finished then
 			local any_resolved = reduce(cur.upstream, false, function(v,k,accum) return accum or (v.state == RESOLVED) end)
 			local any_rejected = reduce(cur.upstream, false, function(v,k,accum) return accum or (v.state == REJECTED) end)
 			local all_resolved = reduce(cur.upstream, true, function(v,k,a) return a and (v.state == RESOLVED) end)
@@ -104,11 +133,14 @@ local function chain(p)
 					if cur.state == WAITING then
 						cur:resolve(R.unwrap(first_resolved))
 					elseif cur.state == RESOLVING then
+						cur.value = first_resolved.value
 						cur:finish()
 					end
 					unhandled_rejection = false
 				elseif all_rejected then
 					if cur.state == REJECTING then
+						cur.value = nil
+						cur.err = first_rejected.err
 						cur:finish()
 					else
 						cur:reject(first_rejected.err)
@@ -222,6 +254,7 @@ function R.new(resolve_callback, reject_callback, debug_name)
 		finished = false,
 		value = nil, -- This line is more documentation than function
 		err = nil,
+		inner = nil, -- Result of the resolve callback
 		resolve_callback = resolve_callback,
 		reject_callback = reject_callback,
 		mode = ANY,
@@ -232,17 +265,21 @@ function R.new(resolve_callback, reject_callback, debug_name)
 	}
 
 	function P:resolve(value)
-		local from_where = debug.getinfo(2, "Sln")
 		if debug_prints then
-			print("Resolving " .. (self.debug_name or "anon") .. " from " .. from_where.short_src .. ":" .. from_where.currentline .. " " .. from_where.name .. "()")
+			local from_where = debug.getinfo(2, "Sln")
+			print("Resolving " .. (self.debug_name or "anon") .. " from " .. from_where.short_src .. ":" .. from_where.currentline .. " " .. from_where.name .. "() with value = " .. tostring(value))
 		end
 		self.state = RESOLVING
 		self.err = nil
 		if self.resolve_callback then
+			local throw_index_before = throw_index
 			local ok, result = pcall(self.resolve_callback, R.unwrap(value))
-			if is_promise(result) then
+			ok, result = settle_throw(ok, result, throw_index_before)
+			if ok and is_promise(result) then
 				--insert_next(self, result)
-				insert_previous(self, result)
+				--insert_previous(self, result)
+				self.inner = result
+				self.inner.downstream = self
 				--self.state = RESOLVED
 				--self.finished = true
 				if result.state == WAITING then
@@ -269,18 +306,22 @@ function R.new(resolve_callback, reject_callback, debug_name)
 	end
 
 	function P:reject(err)
-		local from_where = debug.getinfo(2, "Sln")
 		if debug_prints then
+			local from_where = debug.getinfo(2, "Sln")
 			print("Rejecting " .. (self.debug_name or "anon") .. " from " .. from_where.short_src .. ":" .. from_where.currentline .. " " .. from_where.name)
 		end
 		self.state = REJECTING
 		self.value = nil
 		if self.reject_callback then
 			--self.value = self.reject_callback(err)
+			local throw_index_before = throw_index
 			local ok, result = pcall(self.reject_callback, err)
-			if is_promise(result) then
+			ok, result = settle_throw(ok, result, throw_index_before)
+			if ok and is_promise(result) then
 				--insert_next(self, result)
-				insert_previous(self, result)
+				--insert_previous(self, result)
+				self.inner = result
+				self.inner.downstream = self
 				self.state = RESOLVING
 				--self.finished = true
 				if result.state == WAITING then
@@ -378,6 +419,11 @@ function R.reject(err)
 	return ret, 0 -- trash to avoid tail call
 end
 
+function R.throw(err) -- Reject the promise from within a callback
+	throw_index = throw_index + 1
+	throw_stack[throw_index] = err
+end
+
 -- Can accept multiple arguments, or a table of promise objects
 function R.any(...)
 	local nargs = select("#", ...)
@@ -427,6 +473,18 @@ function R.all(...)
 	end
 	chain(ret)
 	return ret, 0 -- trash to avoid tail call
+end
+
+function R.wait(seconds)
+	local ret = R.new()
+	if windower then
+		coroutine.schedule(seconds,
+			function()
+				ret:resolve()
+			end
+		)
+	end
+	return ret
 end
 
 function R.wrap(value)
@@ -498,17 +556,19 @@ local function test02(bool_resolve_before_next)
 	end
 	outer:next(
 		function(v)
-			print("#1 outer n1")
+			print("#1 outer n1: received value = " .. v)
 			inner = R.new(
 			--return inner:next(
 				function(v)
-					print("#2 inner 1")
+					print("#2 inner 1: received value = " .. v)
+					return "#2 inner 1 return value"
 				end,
 				nil, "inner_1"
 			)
 			return inner:next(
 				function(v)
-					print("#3 inner n2")
+					print("#3 inner n2: received value = " .. v)
+					return "#3 inner n2 return value"
 				end,
 				nil, "inner_n2"
 			)
@@ -516,7 +576,8 @@ local function test02(bool_resolve_before_next)
 		nil,"outer_n1"
 	):next(
 		function(v)
-			print("#4 outer n2")
+			print("#4 outer n2: received value = " .. v)
+			return "#4 outer n2 return value"
 		end,
 		nil, "outer_n2"
 	)
@@ -525,7 +586,7 @@ local function test02(bool_resolve_before_next)
 		outer:resolve(1)
 	end
 	print("Calling inner resolve")
-	inner:resolve(1)
+	inner:resolve(9)
 end
 
 local function test03()

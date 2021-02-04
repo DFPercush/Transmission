@@ -1,7 +1,16 @@
 local restricted_slots = require("restricted_slots")
 --local Promise = require("deferred")
 
-GEAR_CACHE = {}
+function init_gear_cache()
+	--notice("Initializing in-memory gear cache.")
+	GEAR_CACHE =
+	{
+		last_used = {},
+		combos = {},
+	}
+end
+init_gear_cache()
+
 --[[
 	player_name = {
 		JOB = {
@@ -674,6 +683,7 @@ function async_build_gear_continuum(purpose_name, job_optional, level_optional) 
 					notice("Found " .. #built_sets .. " sets for " .. purpose_name .. " out of " .. count .. " combinations.")
 				end
 				--done_callback(built_sets)
+				print("Resolving with " .. #built_sets .. " sets")
 				done_promise:resolve(built_sets)
 				break
 			end
@@ -724,8 +734,6 @@ end
 
 -- GEAR CACHE FUNCTIONS -------------------------------------------------------------------------------------
 
--- TODO: Instead of a global file with [player][...], do per-player file with [job][level] etc...
-
 GEAR_CACHE_PRINT_ONCE_DETECT = false
 
 -- Detects whether a serialized gear list is the same as memory-referenced list.
@@ -757,7 +765,9 @@ end
 -- Assumes indexed_gear_set_list are all results from a single purpose, on a single job, at a particular level.
 -- In other words, they all reference the same categorized_gear_list
 local function cache_store_results(job, level, indexed_gear_set_list)
+	print("cache_store_results() called (" .. job .. ", " .. type(indexed_gear_set_list) .. "[" .. tostring(type(indexed_gear_set_list) == "table" and (#indexed_gear_set_list)) .. "])")
 	if type(indexed_gear_set_list) ~= "table" or (#indexed_gear_set_list == 0) then return end
+	print("cache_store_results() proceeding...")
 	
 	-- Make sure the set has at least one item in it, otherwise don't store anything
 	local max_index = 0
@@ -769,14 +779,16 @@ local function cache_store_results(job, level, indexed_gear_set_list)
 			end
 		end
 	end
+	print("max_index = " .. max_index)
 	if max_index == 0 then return end
 
 	local player = Client.get_player()
-	GEAR_CACHE[job] = GEAR_CACHE[job] or {}
-	GEAR_CACHE[job][level] = GEAR_CACHE[job][level] or {}
+	print("keys(GEAR_CACHE.combos[" .. job .. "]) = " .. tostring(keys(GEAR_CACHE.combos[job])))
+	GEAR_CACHE.combos[job] = GEAR_CACHE.combos[job] or {}
+	GEAR_CACHE.combos[job][level] = GEAR_CACHE.combos[job][level] or {}
 	local purpose_name = indexed_gear_set_list[1].purpose_checked_against.name
-	GEAR_CACHE[job][level][purpose_name] = {} -- Clear previous data
-	local cache = GEAR_CACHE[job][level][purpose_name]
+	GEAR_CACHE.combos[job][level][purpose_name] = {} -- Clear previous data
+	local cache = GEAR_CACHE.combos[job][level][purpose_name]
 	cache.categorized_gear_lists = {}
 	cache.indexed_gear_set_list = indexed_gear_set_list
 	for i,indexed_gear_set in pairs(indexed_gear_set_list) do
@@ -796,12 +808,12 @@ function save_gear_cache()
 	local cc = deep_copy(GEAR_CACHE, function(v) return type(v) ~= "function" end)
 	--print("dbg 2")
 	--for player_name, player_data in pairs(cc) do
-	local player_data = cc
+	local player_data = cc.combos
 		--print("dbg 3")
 		for job_name, job_data in pairs(player_data) do
 			--print("dbg 4")
 			for level, level_data in pairs(job_data) do
-				--print("dbg 5")
+				print("dbg 5: " .. job_name .. level .. "(" .. type(level_data) .. ")")
 				for purpose_name, purpose_data in pairs(level_data) do
 					--print("dbg 6")
 					local indexed_gear_set_list = purpose_data.indexed_gear_set_list
@@ -889,9 +901,9 @@ function load_gear_cache()
 	local cache_loaded, load_cache_ret = pcall(function() GEAR_CACHE = require("data/" .. player.name .. "_gear_cache") end)
 	if (not cache_loaded) then
 		error("Error loading gear cache. Use '//tm build' at your earliest convenience, or I won't be able to do much.\n" .. load_cache_ret)
-	elseif(type(GEAR_CACHE) ~= "table") then
-		error("Gear cache is corrupt. Use '//tm build' at your earliest convenience, or I won't be able to do much.\n")
-		GEAR_CACHE = {}
+	elseif(type(GEAR_CACHE) ~= "table" or GEAR_CACHE.combos == nil or GEAR_CACHE.last_used == nil) then
+		warning("Gear cache is corrupt. Use '//tm build' at your earliest convenience, or I won't be able to do much.\n")
+		init_gear_cache()
 		return false
 	end
 	
@@ -900,7 +912,7 @@ function load_gear_cache()
 	local all_equipment = Client.item_utils.get_all_equipment()
 	
 	--print("--------\n" .. tostring(Client.resources.slots) .. "\n---------")
-	for job_name, job_data in pairs(GEAR_CACHE) do
+	for job_name, job_data in pairs(GEAR_CACHE.combos) do
 		for level, level_data in pairs(job_data) do
 			for purpose_name, purpose_data in pairs(level_data) do
 				for icat, categorized_gear_list in pairs(purpose_data.categorized_gear_lists) do
@@ -940,8 +952,8 @@ function load_gear_cache()
 
 	if Conf.showmsg.CACHE_LOADED then
 		local job_level_count = 0
-		if GEAR_CACHE ~= nil and tcount(GEAR_CACHE) > 0 then
-			for _,job in pairs(GEAR_CACHE) do
+		if GEAR_CACHE.combos ~= nil and tcount(GEAR_CACHE.combos) > 0 then
+			for _,job in pairs(GEAR_CACHE.combos) do
 				for _, level in pairs(job) do
 					job_level_count = job_level_count + 1
 				end
@@ -951,8 +963,6 @@ function load_gear_cache()
 			notice("Welcome to Transmission! Use '//tm build' when you have a few minutes to create your gear sets.")
 		end
 	end
-	--GEAR_CACHE = {}
-	--warning("Clearing gear cache, because post-load object reconstruction is not properly coded yet.")
 end
 
 
@@ -968,6 +978,7 @@ function async_rebuild_gear_cache_for_job(purposes_table, job_optional, level_op
 	for purpose_name,_ in pairs(purposes_table) do
 		prev_promise = prev_promise:next(
 			function(indexed_gear_set_list)
+				print("Received resolve with " .. #(indexed_gear_set_list or {}) .. " sets")
 				cache_store_results(job, level, indexed_gear_set_list)
 				num_processed = num_processed + 1
 				if Conf.showmsg.DEBUG_REBUILD_JOB_PURPOSE then
@@ -978,6 +989,7 @@ function async_rebuild_gear_cache_for_job(purposes_table, job_optional, level_op
 		)
 	end
 	local ret = prev_promise:next(function(indexed_gear_set_list)
+		print("Received resolve with " .. #(indexed_gear_set_list or {}) .. " sets")
 		cache_store_results(job, level, indexed_gear_set_list)
 		num_processed = num_processed + 1
 		if Conf.showmsg.DEBUG_REBUILD_JOB_FINISH then

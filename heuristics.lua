@@ -1,3 +1,4 @@
+local windower_event_predicates = require "windower_event_predicates"
 -- Monitors heurisic battle information (hits, misses, evades, etc.)
 -- so that the proper weights can be applied to the spectrum of gear sets available
 
@@ -68,7 +69,8 @@ function heuristics_system.cur() --player, mob)
 end
 
 function heuristics_system.using_item(itemid)
-	GEAR_CACHE = GEAR_CACHE or {}
+	if GEAR_CACHE == nil then init_gear_cache() end
+	--GEAR_CACHE = GEAR_CACHE or {}
 	GEAR_CACHE.last_used = GEAR_CACHE.last_used or {}
 	local now = os.time()
 	GEAR_CACHE.last_used[itemid] = now
@@ -131,7 +133,6 @@ registry.melee_swing_by_player = {
 	end
 }
 
-
 -------------------------------------------------------------------------------------------------
 
 
@@ -151,7 +152,9 @@ local function monitor_equipment_usage_coro()
 end
 schedule(monitor_equipment_usage_coro, 1)
 -- TODO: Load from cache
-
+windower.register_event("status change", function (new_status, old_status)
+	print("Status change " .. old_status .. " -> " .. new_status)
+end)
 
 
 -------------------------------------------------------------------------------------------------
