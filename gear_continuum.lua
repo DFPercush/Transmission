@@ -683,7 +683,7 @@ function async_build_gear_continuum(purpose_name, job_optional, level_optional) 
 					notice("Found " .. #built_sets .. " sets for " .. purpose_name .. " out of " .. count .. " combinations.")
 				end
 				--done_callback(built_sets)
-				print("Resolving with " .. #built_sets .. " sets")
+				--print("Resolving with " .. #built_sets .. " sets")
 				done_promise:resolve(built_sets)
 				break
 			end
@@ -765,9 +765,9 @@ end
 -- Assumes indexed_gear_set_list are all results from a single purpose, on a single job, at a particular level.
 -- In other words, they all reference the same categorized_gear_list
 local function cache_store_results(job, level, indexed_gear_set_list)
-	print("cache_store_results() called (" .. job .. ", " .. type(indexed_gear_set_list) .. "[" .. tostring(type(indexed_gear_set_list) == "table" and (#indexed_gear_set_list)) .. "])")
+	--print("cache_store_results() called (" .. job .. ", " .. type(indexed_gear_set_list) .. "[" .. tostring(type(indexed_gear_set_list) == "table" and (#indexed_gear_set_list)) .. "])")
 	if type(indexed_gear_set_list) ~= "table" or (#indexed_gear_set_list == 0) then return end
-	print("cache_store_results() proceeding...")
+	--print("cache_store_results() proceeding...")
 	
 	-- Make sure the set has at least one item in it, otherwise don't store anything
 	local max_index = 0
@@ -779,11 +779,15 @@ local function cache_store_results(job, level, indexed_gear_set_list)
 			end
 		end
 	end
-	print("max_index = " .. max_index)
+	--print("max_index = " .. max_index)
 	if max_index == 0 then return end
 
 	local player = Client.get_player()
-	print("keys(GEAR_CACHE.combos[" .. job .. "]) = " .. tostring(keys(GEAR_CACHE.combos[job])))
+	--if GEAR_CACHE.combos[job] then
+	--	print("keys(GEAR_CACHE.combos[" .. job .. "]) = " .. tostring(keys(GEAR_CACHE.combos[job])))
+	--else
+	--	print("GEAR_CACHE.combos[" .. job .. "] does not exist yet")
+	--end
 	GEAR_CACHE.combos[job] = GEAR_CACHE.combos[job] or {}
 	GEAR_CACHE.combos[job][level] = GEAR_CACHE.combos[job][level] or {}
 	local purpose_name = indexed_gear_set_list[1].purpose_checked_against.name
@@ -813,7 +817,7 @@ function save_gear_cache()
 		for job_name, job_data in pairs(player_data) do
 			--print("dbg 4")
 			for level, level_data in pairs(job_data) do
-				print("dbg 5: " .. job_name .. level .. "(" .. type(level_data) .. ")")
+				--print("dbg 5: " .. job_name .. level .. "(" .. type(level_data) .. ")")
 				for purpose_name, purpose_data in pairs(level_data) do
 					--print("dbg 6")
 					local indexed_gear_set_list = purpose_data.indexed_gear_set_list
@@ -978,7 +982,7 @@ function async_rebuild_gear_cache_for_job(purposes_table, job_optional, level_op
 	for purpose_name,_ in pairs(purposes_table) do
 		prev_promise = prev_promise:next(
 			function(indexed_gear_set_list)
-				print("Received resolve with " .. #(indexed_gear_set_list or {}) .. " sets")
+				--print("Received resolve with " .. #(indexed_gear_set_list or {}) .. " sets")
 				cache_store_results(job, level, indexed_gear_set_list)
 				num_processed = num_processed + 1
 				if Conf.showmsg.DEBUG_REBUILD_JOB_PURPOSE then
@@ -989,11 +993,11 @@ function async_rebuild_gear_cache_for_job(purposes_table, job_optional, level_op
 		)
 	end
 	local ret = prev_promise:next(function(indexed_gear_set_list)
-		print("Received resolve with " .. #(indexed_gear_set_list or {}) .. " sets")
+		--print("Received resolve with " .. #(indexed_gear_set_list or {}) .. " sets")
 		cache_store_results(job, level, indexed_gear_set_list)
 		num_processed = num_processed + 1
 		if Conf.showmsg.DEBUG_REBUILD_JOB_FINISH then
-			notice("Built " .. job .. level .. "  " .. num_processed .. "/" .. tcount(purposes_table))
+			notice("Built " .. job .. level) -- .. "  " .. num_processed .. "/" .. tcount(purposes_table) .. " purposes.")
 		end
 		return true
 	end) --, function (err)
