@@ -70,7 +70,28 @@ slot_flags =
 	ring2 = 16384,
 	back = 32768,
 },
+
+storage_ids = 
+{
+	[0] = "inventory",
+	[1] = "safe",
+	[2] = "storage",
+	--[3] = ??? Maybe delivery box?
+	[4] = "locker",
+	[5] = "satchel",
+	[6] = "sack",
+	[7] = "case",
+	[8] = "wardrobe",
+	[9] = "safe2",
+	[10] = "wardrobe2",
+	[11] = "wardrobe3",
+	[12] = "wardrobe4",
 }
+
+}
+
+for k,v in pairs(ret.storage_ids) do ret.storage_ids[v] = k end
+
 
 local slots = {
     [0] = {id=0,en="Main"},

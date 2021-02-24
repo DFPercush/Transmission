@@ -18,7 +18,10 @@ function merge_left(...)
 	local r = {}
 	local num_tables = select("#", ...)
 	for iTable = 1,num_tables do
-		for k,v in pairs(select(iTable, ...)) do r[k] = v end
+		local cur_table = select(iTable, ...)
+		if type(cur_table) == "table" then
+			for k,v in pairs(cur_table) do r[k] = v end
+		end
 	end
 	return r
 end
@@ -27,7 +30,10 @@ function merge_right(...)
 	local r = {}
 	local num_tables = select("#", ...)
 	for iTable = num_tables,1,-1 do
-		for k,v in pairs(select(iTable, ...)) do r[k] = v end
+		local cur_table = select(iTable, ...)
+		if type(cur_table) == "table" then
+			for k,v in pairs(cur_table) do r[k] = v end
+		end
 	end
 	return r
 end
@@ -327,6 +333,7 @@ function array_tostring_horizontal(a)
 	return ret
 end
 
+-- TODO: Move out of util, this is application specific
 local OCCASIONALLY_ATTACKS_AVERAGE = {
 	[1] = 1,
 	[2] = 1.44991,
@@ -426,10 +433,17 @@ function round(num, numDecimalPlaces)
 	return math.floor(num * mult + 0.5) / mult
 end
 
-function find(haystack, needle)
+function find(haystack, needle, optional_predicate)
+	if type(haystack) ~= "table" then return nil end
 	for k,v in pairs(haystack) do
-		if v == needle then
-			return k
+		if optional_predicate then
+			if optional_predicate(v, needle) then
+				return k
+			end
+		else
+			if v == needle then
+				return k
+			end
 		end
 	end
 	return nil
@@ -484,8 +498,10 @@ end
 
 function keys(t)
 	local ret = {}
-	for k,v in pairs(t) do
-		ret[#ret+1] = k
+	if type(t) == "table" then
+		for k,v in pairs(t) do
+			ret[#ret+1] = k
+		end
 	end
 	return ret
 end
@@ -539,4 +555,11 @@ function quick_trace(separator)
 		end
 	end
 	return r
+end
+
+function sum(t)
+	local a = 0
+	for _,v in ipairs(t) do
+		a = a + v
+	end
 end

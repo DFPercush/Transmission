@@ -88,16 +88,14 @@ local res = Client.resources
 resources = res
 
 
-
--- Third party libraries
---local Promise = require("deferred") -- Uses recursion to resolve and overflows the stack, not suitable for this application
-Promise = require("promise")  -- my own thing
+Promise = require("promise")
 
 -- This addon
 require('util')
 --require('heuristics')
 require('generate_useful_combinations_v1')
 --local slot_flags = flags.slot_flags
+local flags = require("flags")
 require("modifier_aliases")
 require("multi_hit_weapons")
 require("react_to_next")
@@ -329,6 +327,10 @@ handle_command = function(...) --event_name, ...)
 		--slips.get_slip_number_by_id(slip_id)
 	elseif subcommand == "showequip" then
 		print(Client.item_utils.get_current_equipment())
+	elseif subcommand == "l" or subcommand == "loadout" then
+		-- TODO: loadout(job, level)
+	elseif subcommand == "p" or subcommand == "porter" then
+		-- TODO: What can I store at porter moogle?
 	else
 		print(...)
 	end
@@ -339,8 +341,18 @@ end
 --	print("hello I work")
 --end )
 
-Client.register_event('addon_command', handle_command)
+ZONING = false
 --Client.register_event("action",function(action) print(action) end)
-
+local function monitor_zone_change()
+	local all_items = Client.item_utils.get_all_items()
+	if tcount(all_items) == 0 then
+		ZONING = true
+		schedule(monitor_zone_change, 1)
+	else
+		ZONING = false
+	end
+end
+Client.register_event("zone_change", monitor_zone_change)
+Client.register_event('addon_command', handle_command)
 
 notice("Ready!")

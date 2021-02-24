@@ -1,4 +1,9 @@
 
+-- A Lua promise library by DFPercush, Jan-Feb 2021
+-- github.com/DFPercush
+-- Originally written as part of the Transmission addon for FFXI Windower.
+
+
 local debug_prints = false
 
 if windower == nil then
@@ -265,6 +270,7 @@ function R.new(resolve_callback, reject_callback, debug_name)
 	}
 
 	function P:resolve(value)
+		if self.state == RESOLVED or self.state == REJECTED then return end
 		if debug_prints then
 			local from_where = debug.getinfo(2, "Sln")
 			print("Resolving " .. (self.debug_name or "anon") .. " from " .. from_where.short_src .. ":" .. from_where.currentline .. " " .. from_where.name .. "() with value = " .. tostring(value))
@@ -306,6 +312,7 @@ function R.new(resolve_callback, reject_callback, debug_name)
 	end
 
 	function P:reject(err)
+		if self.state == RESOLVED or self.state == REJECTED then return end
 		if debug_prints then
 			local from_where = debug.getinfo(2, "Sln")
 			print("Rejecting " .. (self.debug_name or "anon") .. " from " .. from_where.short_src .. ":" .. from_where.currentline .. " " .. from_where.name)

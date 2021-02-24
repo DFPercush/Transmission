@@ -94,6 +94,7 @@ function R.get_all_items()
 			{
 				id = itemid,
 				storage = slip_name,
+				slip = slip_id,
 			})
 		end
 	end
@@ -450,20 +451,93 @@ function R.create_indexed_set(categorized_gear_list_param, indices_param, purpos
 	return indexed_set
 end
 
-function R.find_item(id, equipment_list, skip_first) -- Returns item_table, accessible_boolean
+function R.find_item(id, equipment_list, skip_first) -- Returns item_object, accessible_boolean
 	local seen_first = false
+	if equipment_list == nil then
+		equipment_list = R.get_all_items()
+	end
 	for i = 1, #equipment_list do
 		if equipment_list[i].id == id then
+			local accessible = (find({"inventory", "sack", "satchel", "case", "wardrobe", "wardrobe2", "wardrobe3", "wardrobe4"}, equipment_list[i].storage) ~= nil)
 			if skip_first and not seen_first then
 				seen_first = true
 			elseif skip_first and seen_first then
-				return equipment_list[i]
+				return equipment_list[i], accessible
 			else
-				return equipment_list[i]
+				return equipment_list[i], accessible
 			end
 		end
 	end
 end
+
+function R.is_transferrable(item)
+	return (find({"inventory", "sack", "satchel", "case", "wardrobe", "wardrobe2", "wardrobe3", "wardrobe4"}, item.storage) ~= nil)
+end
+
+function R.get_free_space(bag)
+	local inv = windower.ffxi.get_items()
+	return inv["max_" .. bag] - inv["count_" .. bag]
+end
+
+function R.find_first_unequippable(itemid)
+	local function search(bag)
+		for i,item in ipairs(bag) do
+			if item.id ==  itemid then return item, i end
+		end
+	end
+
+	local r
+	r = search(windower.get_items("sack"))
+	if r then
+		r.storage = "sack"
+		return r
+	end
+	bag = search(windower.get_items("satchel"))
+	if r then
+		r.storage = "satchel"
+		return r
+	end
+	bag = search(windower.get_items("case"))
+	if r then
+		r.storage = "case"
+		return r
+	end
+	bag = search(windower.get_items("safe"))
+	if r then
+		r.storage = "safe"
+		return r
+	end
+	bag = search(windower.get_items("safe2"))
+	if r then
+		r.storage = "safe2"
+		return r
+	end
+	bag = search(windower.get_items("locker"))
+	if r then
+		r.storage = "locker"
+		return r
+	end
+	bag = search(windower.get_items("storage"))
+	if r then
+		r.storage = "storage"
+		return r
+	end
+
+	local slips_all = slips.get_player_items()
+	for slip_id, slip_items in pairs(slips_all) do
+		local slip_name = "slip " .. (find(slips.storages, slip_id) or "?")
+		for _, slip_itemid in pairs(slip_items) do
+			if slip_itemid == itemid then
+				return {
+					id = itemid,
+					storage = slip_name,
+					slip = slip_id,
+				}
+			end
+		end
+	end
+end
+
 
 --[[
 function R.remap_items(optional_job_string_or_categorized_gear_list_table)

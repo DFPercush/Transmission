@@ -882,7 +882,10 @@ function save_gear_cache()
 		end -- for job
 	--end  -- for player
 	--print("dbg 17")
-	local filename = Client.addon_path .. "data/" .. Client.get_player().name .. "_gear_cache.lua"
+	if not Client.system.dir_exists(Client.addon_path .. "data/cache") then
+		Client.system.create_dir(Client.addon_path .. "data/cache")
+	end
+	local filename = Client.addon_path .. "data/cache/" .. Client.get_player().name .. "_gear_cache.lua"
 	local save_data = "return " .. serialize(cc)
 	--print("writing " .. filename)
 	local f = io.open(filename, "w")
@@ -902,11 +905,11 @@ end
 
 function load_gear_cache()
 	local player = Client.get_player()
-	local cache_loaded, load_cache_ret = pcall(function() GEAR_CACHE = require("data/" .. player.name .. "_gear_cache") end)
+	local cache_loaded, load_cache_ret = pcall(function() GEAR_CACHE = require("data/cache/" .. player.name .. "_gear_cache") end)
 	if (not cache_loaded) then
-		error("Error loading gear cache. Use '//tm build' at your earliest convenience, or I won't be able to do much.\n" .. load_cache_ret)
+		warning("Gear cache was not loaded.")
 	elseif(type(GEAR_CACHE) ~= "table" or GEAR_CACHE.combos == nil or GEAR_CACHE.last_used == nil) then
-		warning("Gear cache is corrupt. Use '//tm build' at your earliest convenience, or I won't be able to do much.\n")
+		warning("Gear cache is corrupt. Use '//tm build' at your earliest convenience, or I won't be able to do much.")
 		init_gear_cache()
 		return false
 	end

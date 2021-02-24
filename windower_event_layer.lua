@@ -143,4 +143,28 @@ function utils.get_damage(event)
 	return event.param
 end
 
+function utils.expect(event_name, timeout, predicate)
+	local ret_promise = Promise.new()
+	local event_reg, timeout_coro
+	event_reg = Client.register_event(event_name,
+		function (event_object)
+			if predicate(event_object) then
+				Client.unregister_event(event_reg)
+				coroutine.close(timeout_coro)
+				ret_promise.resolve(event_object)
+			end
+		end -- register_event callback
+	)
+	timeout_coro = coroutine.schedule(
+		function()
+			Client.unregister_event(event_reg)
+			ret_promise.reject("timeout")
+			--coroutine.close(timeout_coro) -- Can I close myself? Do I even need to?
+		end,
+		timeout
+	)
+	return ret_promise
+end  -- function expect()
+
+
 return R

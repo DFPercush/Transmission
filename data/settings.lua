@@ -1,5 +1,7 @@
 Conf = 
 {
+	-- TODO: LOCALE = "en"
+
 	SEARCH_ALL_STORAGES = true,
 	
 	-- How often to notify of progress if it's a short job
@@ -20,8 +22,6 @@ Conf =
 	
 	CLEAR_CACHE_COMMAND_CONFIRMATION_TIMEOUT_SECONDS = 60,  -- //tm cc
 	
-	--VERBOSITY_LEVEL = 1,
-
 	-- Which status messages will be displayed during the build process.
 	-- must be true or false, do not use 1 or 0
 	showmsg = 
@@ -34,6 +34,8 @@ Conf =
 		CACHE_LOADED = true,
 		CACHE_SAVE_START = true,
 		CACHE_SAVED_SUCCESS = true,
+
+		LOADOUT_WARNING_NO_JOB_DATA = true,
 
 		AVERAGE_DAMAGE_ACCURACY = false,
 

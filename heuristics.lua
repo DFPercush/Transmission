@@ -79,6 +79,9 @@ end
 function heuristics_system.get_least_used_equipment(all_items_flat_list)
 	local ret = {}
 	local sorting = {}
+	if all_items_flat_list == nil then
+		all_items_flat_list = Client.item_utils.get_all_equipment()
+	end
 	if GEAR_CACHE and GEAR_CACHE.last_used then
 		for itemid, time in pairs(GEAR_CACHE.last_used) do
 			table.insert(sorting, {itemid=itemid, time=time})
@@ -138,7 +141,7 @@ registry.melee_swing_by_player = {
 
 -- Equipment usage data, for determining what to swap out to storage
 local function monitor_equipment_usage_coro()
-	if Client.get_player().status ~= "zoning" then -- TODO: Status id numbers, it's not a string
+	if not ZONING then
 		local equip = Client.item_utils.get_current_equipment()
 		--print(equip)
 		for i=0,15 do
@@ -151,13 +154,10 @@ local function monitor_equipment_usage_coro()
 	schedule(monitor_equipment_usage_coro, 1)
 end
 schedule(monitor_equipment_usage_coro, 1)
--- TODO: Load from cache
-windower.register_event("status change", function (new_status, old_status)
-	print("Status change " .. old_status .. " -> " .. new_status)
-end)
 
 
 -------------------------------------------------------------------------------------------------
+
 
 for _, t in pairs(heuristics_system.event_registry) do
 	if (t.callback ~= nil) then

@@ -64,6 +64,10 @@ mid cast is int, mab, macc etc
 . "On (day):" example Ice Ring (from Shiva)
   "(x weather):" yadda yadda
 
+. gallant coronet and valor surcoat need to remain equipped for cover mod to stay in effect
+
+. relevant purposes for a job/subjob combination
+	will affect loadout
 
 acc1 - eva = hit%1
 acc_target - eva = .94
