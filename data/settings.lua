@@ -2,9 +2,10 @@ Conf =
 {
 	-- TODO: LOCALE = "en"
 
+	-- When building sets, scan all storages, not just currently equippable inventory/wardrobe.
 	SEARCH_ALL_STORAGES = true,
 	
-	-- How often to notify of progress if it's a short job
+	-- How often to notify of build progress if it's a short job
 	SHORT_TERM_PROGRESS_REPORT_INTERVAL_SECONDS = 5,
 
 	-- How often to notify of progress if it starts taking a long time
@@ -21,6 +22,21 @@ Conf =
 	PERMUTE_BATCH_DELAY = .01, -- Unit: seconds
 	
 	CLEAR_CACHE_COMMAND_CONFIRMATION_TIMEOUT_SECONDS = 60,  -- //tm cc
+
+	WHERE_TO_DUMP_UNUSED_ITEMS_PRIORITY =
+	{
+		"slip",
+		"safe",
+		"safe2",
+		"storage",
+		"case",
+		"satchel",
+		"sack",
+	},
+
+	LOADOUT_MANUAL_TRANSFER_TIMEOUT = 600,  -- How long (seconds) to wait for the user to manually get/put an item from storage before aborting.
+	LOADOUT_DELAY_JITTER_MIN = 0.1,
+	LOADOUT_DELAY_JITTER_MAX = 1.0,
 	
 	-- Which status messages will be displayed during the build process.
 	-- must be true or false, do not use 1 or 0

@@ -1,4 +1,8 @@
 
+. functions for loadout
+	. free space delta to get all needed gear for a job/level into equippable storage
+	
+
 . make promises cause a real error if they are rejected without being handled. 
 	/ as-is, they report an error, but continue executing.
 	  Where does windower put lua's original error() function?
@@ -74,6 +78,8 @@ acc_target - eva = .94
 hit% = clamp(  0.75 + (acc - eva)/2  ,  0.2, 0.95)
 
 TODO: .en --> [LOCALE]
+
+. Conf = merge_left(require("default_settings"), require("data/settings"))
 
 . <Roach> excluding MDB and MDT effects, each blm's base damage can be approximated as (1+MAB/100)*floor(INT + ElementalMagicSkill/6)*3.5
 --------------------------

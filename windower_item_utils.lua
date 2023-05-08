@@ -474,9 +474,13 @@ function R.is_transferrable(item)
 	return (find({"inventory", "sack", "satchel", "case", "wardrobe", "wardrobe2", "wardrobe3", "wardrobe4"}, item.storage) ~= nil)
 end
 
+function R.is_in_equippable_storage(item)
+	return (find({"inventory", "wardrobe", "wardrobe2", "wardrobe3", "wardrobe4"}, item.storage) ~= nil)
+end
+
 function R.get_free_space(bag)
 	local inv = windower.ffxi.get_items()
-	return inv["max_" .. bag] - inv["count_" .. bag]
+	return (inv["max_" .. bag] or 0) - (inv["count_" .. bag] or 0)
 end
 
 function R.find_first_unequippable(itemid)
